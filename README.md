@@ -11,6 +11,8 @@ Library providing HAProxy Proxy Protocol v2 support for UDP and TCP. Multi-modul
 - proxy-socket-guava: optional Guava-based cache
 - proxy-socket-examples: runnable samples
 
+Reference: [HAProxy Proxy Protocol Specifications](https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt)
+
 Quick start (UDP)
 -----------------
 ```java
