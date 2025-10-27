@@ -7,14 +7,17 @@ import java.nio.charset.StandardCharsets;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class ProxyProtocolV2DecoderVectorsTest {
-    private static byte[] sig() {
-        return "\r\n\r\n\0\r\nQUIT\n".getBytes(StandardCharsets.ISO_8859_1);
+class ProxyProtocolV2DecoderTest {
+    private static final byte[] SIG = "\r\n\r\n\0\r\nQUIT\n".getBytes(StandardCharsets.ISO_8859_1);
+
+    @Test
+    void validateRejectsNonHeader() {
+        byte[] data = "hello".getBytes(StandardCharsets.UTF_8);
+        assertThrows(ProxyProtocolParseException.class, () -> ProxyProtocolV2Decoder.parse(data, 0, data.length));
     }
 
     @Test
-    void decodeIPv4Tcp_fixedVector() throws Exception {
-        byte[] s = sig();
+    void decodeIPv4Tcp() throws Exception {
         byte verCmd = (byte) 0x21; // v2, PROXY
         byte famProto = (byte) 0x11; // INET4 + STREAM
         byte[] payload = new byte[]{
@@ -29,8 +32,8 @@ class ProxyProtocolV2DecoderVectorsTest {
                 // dport 443 (0x01BB)
                 0x01, (byte) 0xBB
         };
-        byte[] h = new byte[s.length + 4 + 12];
-        int p = 0; System.arraycopy(s, 0, h, p, s.length); p += s.length;
+        byte[] h = new byte[SIG.length + 4 + 12];
+        int p = 0; System.arraycopy(SIG, 0, h, p, SIG.length); p += SIG.length;
         h[p++] = verCmd; h[p++] = famProto;
         System.arraycopy(payload, 0, h, p, payload.length);
 
@@ -44,8 +47,7 @@ class ProxyProtocolV2DecoderVectorsTest {
     }
 
     @Test
-    void decodeIPv6Udp_fixedVector() throws Exception {
-        byte[] s = sig();
+    void decodeIPv6Udp() throws Exception {
         byte verCmd = (byte) 0x21; // v2, PROXY
         byte famProto = (byte) 0x22; // INET6 + DGRAM
 
@@ -62,8 +64,8 @@ class ProxyProtocolV2DecoderVectorsTest {
         // dport 2000 (0x07D0)
         addr[q++] = 0x07; addr[q++] = (byte) 0xD0;
 
-        byte[] h = new byte[s.length + 4 + 36];
-        int p = 0; System.arraycopy(s, 0, h, p, s.length); p += s.length;
+        byte[] h = new byte[SIG.length + 4 + 36];
+        int p = 0; System.arraycopy(SIG, 0, h, p, SIG.length); p += SIG.length;
         h[p++] = verCmd; h[p++] = famProto;
         System.arraycopy(addr, 0, h, p, addr.length);
 
@@ -76,12 +78,11 @@ class ProxyProtocolV2DecoderVectorsTest {
     }
 
     @Test
-    void decodeLocal_fixedVector() throws Exception {
-        byte[] s = sig();
+    void decodeLocal() throws Exception {
         byte verCmd = (byte) 0x20; // v2, LOCAL
         byte famProto = (byte) 0x00; // UNSPEC
-        byte[] h = new byte[s.length + 4];
-        int p = 0; System.arraycopy(s, 0, h, p, s.length); p += s.length;
+        byte[] h = new byte[SIG.length + 4];
+        int p = 0; System.arraycopy(SIG, 0, h, p, SIG.length); p += SIG.length;
         h[p++] = verCmd; h[p++] = famProto; h[p++] = 0x00; h[p++] = 0x00;
 
         ProxyHeader parsed = ProxyProtocolV2Decoder.parse(h, 0, h.length);
@@ -91,16 +92,15 @@ class ProxyProtocolV2DecoderVectorsTest {
     }
 
     @Test
-    void decodeUnspecWithTlvOnly_fixedVector() throws Exception {
-        byte[] s = sig();
+    void decodeUnspecWithTlvOnly() throws Exception {
         byte verCmd = (byte) 0x21; // v2, PROXY
         byte famProto = (byte) 0x00; // UNSPEC + UNSPEC
 
         // TLV: type=0xEE, len=3, value=10 20 30
         byte[] tlv = new byte[]{ (byte) 0xEE, 0x00, 0x03, 0x10, 0x20, 0x30 };
         // variable length = 0 (addr) + TLV len (6)
-        byte[] h = new byte[s.length + 4 + tlv.length];
-        int p = 0; System.arraycopy(s, 0, h, p, s.length); p += s.length;
+        byte[] h = new byte[SIG.length + 4 + tlv.length];
+        int p = 0; System.arraycopy(SIG, 0, h, p, SIG.length); p += SIG.length;
         h[p++] = verCmd; h[p++] = famProto;
         h[p++] = 0x00; h[p++] = (byte) tlv.length;
         System.arraycopy(tlv, 0, h, p, tlv.length);
@@ -113,14 +113,27 @@ class ProxyProtocolV2DecoderVectorsTest {
     }
 
     @Test
-    void invalidSignature_throws() {
-        byte[] s = sig();
-        s[0] ^= 0x01; // corrupt
-        byte[] h = new byte[s.length + 4];
-        int p = 0; System.arraycopy(s, 0, h, p, s.length); p += s.length;
+    void invalidSignature() throws Exception {
+        byte[] h = new byte[SIG.length + 4];
+        int p = 0; System.arraycopy(SIG, 0, h, p, SIG.length); p += SIG.length;
+        h[0] ^= 0x01; // corrupt
         h[p++] = 0x20; h[p++] = 0x00; h[p++] = 0x00; h[p++] = 0x00;
         assertThrows(ProxyProtocolParseException.class, () -> ProxyProtocolV2Decoder.parse(h, 0, h.length));
     }
+
+
+    @Test
+    void invalidVersion() throws Exception {
+        byte verCmd = (byte) 0x31; // v3, LOCAL
+        byte famProto = (byte) 0x00; // UNSPEC + UNSPEC
+        byte[] h = new byte[SIG.length + 4];
+        int p = 0; System.arraycopy(SIG, 0, h, p, SIG.length); p += SIG.length;
+        h[p++] = verCmd; h[p++] = famProto;
+        h[p++] = 0x00; h[p++] = 0x00;
+
+        assertThrows(ProxyProtocolParseException.class, () -> ProxyProtocolV2Decoder.parse(h, 0, h.length));
+    }
+
 }
 
 
