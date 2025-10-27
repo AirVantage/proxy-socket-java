@@ -28,7 +28,7 @@ public final class ProxyProtocolV2Encoder {
     public ProxyProtocolV2Encoder socket(ProxyHeader.TransportProtocol p) { this.socket = p; return this; }
     public ProxyProtocolV2Encoder source(InetSocketAddress s) { this.source = s; return this; }
     public ProxyProtocolV2Encoder destination(InetSocketAddress d) { this.destination = d; return this; }
-    public ProxyProtocolV2Encoder addTlv(int type, byte[] value) { this.tlvs.add(new Tlv(type, value)); return this; }
+    public ProxyProtocolV2Encoder addTlv(int type, byte[] value) { this.tlvs.add(new Tlv(type, value, 0, value.length)); return this; }
 
     public byte[] build() {
         byte verCmd = (byte) ((2 << 4) | (command == ProxyHeader.Command.PROXY ? 0x01 : 0x00));
