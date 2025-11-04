@@ -177,36 +177,55 @@ public class ProxyDatagramSocketIntegrationTest {
         assertTrue(forwarded.length >= header.length + PAYLOAD.length);
     } */
 
+    /**
+     * Attempt to test udp end-to-end with a third party proxy container.
+     * Doesn't work:
+     *  * haproxy has no generic UDP support https://github.com/haproxy/haproxy/issues/62
+     *  * nginx has UDP+proxy protocol support but v1 only
+     *  * envoy has UDP but no proxy protocol support
+     *
     @Test
-    void udpEndToEnd_viaNginxContainer_proxyProtocolV2() throws Exception {
+    void udpEndToEnd_viaContainer_proxyProtocolV2() throws Exception {
         // Expose the host backend port to containers using Testcontainers' gateway helper
         Testcontainers.exposeHostPorts(backendPort);
 
-        int nginxInternalPort = 5684; // container internal UDP listen port
+        int envoyInternalPort = 5684; // container internal UDP listen port
+        String envoyConfig = "static_resources:\n" +
+            "  listeners:\n" +
+            "  - name: udp_listener\n" +
+            "    address:\n" +
+            "      socket_address:\n" +
+            "        address: 0.0.0.0\n" +
+            "        port_value: " + envoyInternalPort + "\n" +
+            "        protocol: UDP\n" +
+            "    listener_filters:\n" +
+            "    - name: envoy.filters.udp_listener.udp_proxy\n" +
+            "      typed_config:\n" +
+            "        \"@type\": type.googleapis.com/envoy.extensions.filters.udp.udp_proxy.v3.UdpProxyConfig\n" +
+            "        stat_prefix: udp_proxy\n" +
+            "        cluster: backend_cluster\n" +
+            "        upstream_socket_config:\n" +
+            "          proxy_protocol_options:\n" +
+            "            version: V2\n" +
+            "  clusters:\n" +
+            "  - name: backend_cluster\n" +
+            "    connect_timeout: 5s\n" +
+            "    type: STATIC\n" +
+            "    load_assignment:\n" +
+            "      cluster_name: backend_cluster\n" +
+            "      endpoints:\n" +
+            "      - lb_endpoints:\n" +
+            "        - endpoint:\n" +
+            "            address:\n" +
+            "              socket_address:\n" +
+            "                address: host.docker.internal\n" +
+            "                port_value: " + backendPort + "\n";
 
-        String nginxConf = "worker_processes  1;\n" +
-                "events { worker_connections 1024; }\n" +
-                "stream {\n" +
-                "  upstream backend { server host.docker.internal:" + backendPort + "; }\n" +
-                "    log_format proxy '$remote_addr [$time_local] '\n" +
-                "     '$protocol $status $bytes_sent $bytes_received '\n" +
-                "     '$session_time \"$upstream_addr\" '\n" +
-                "     '\"$upstream_bytes_sent\" \"$upstream_bytes_received\" \"$upstream_connect_time\"';" +
-                "  server {\n" +
-                "    listen 0.0.0.0:" + nginxInternalPort + " udp;\n" +
-                "    proxy_pass backend;\n" +
-                "    proxy_responses 1;\n" +
-                "    proxy_timeout 5s;\n" +
-                "    proxy_protocol on;\n" +
-                "    access_log stdout proxy;\n" +
-                "  }\n" +
-                "}\n";
+        ExposedPort udp = new ExposedPort(envoyInternalPort, InternetProtocol.UDP);
 
-        ExposedPort udp = new ExposedPort(nginxInternalPort, InternetProtocol.UDP);
-
-        GenericContainer<?> nginx = new GenericContainer<>(DockerImageName.parse("nginx:1.29-alpine"))
-                .withCopyToContainer(Transferable.of(nginxConf.getBytes(StandardCharsets.UTF_8)), "/etc/nginx/nginx.conf")
-                //.withCommand("nginx", "-g", "daemon off;")
+        GenericContainer<?> envoy = new GenericContainer<>(DockerImageName.parse("envoyproxy/envoy:v1.28-latest"))
+                .withCopyToContainer(Transferable.of(envoyConfig.getBytes(StandardCharsets.UTF_8)), "/etc/envoy/envoy.yaml")
+                .withCommand("envoy", "-c", "/etc/envoy/envoy.yaml")
                 .withCreateContainerCmdModifier(cmd -> {
                     List<ExposedPort> exposedPorts = new ArrayList<>();
                     for (ExposedPort p : cmd.getExposedPorts()) {
@@ -221,21 +240,21 @@ public class ProxyDatagramSocketIntegrationTest {
                     cmd.withPortBindings(ports);
                 })
                 .withLogConsumer(new Slf4jLogConsumer(LOG).withSeparateOutputStreams());
-        nginx.start();
+        envoy.start();
 
-        String containerIpAddress = nginx.getHost();
-        Ports.Binding[] bindings = nginx.getContainerInfo().getNetworkSettings().getPorts().getBindings().get(udp);
+        String containerIpAddress = envoy.getHost();
+        Ports.Binding[] bindings = envoy.getContainerInfo().getNetworkSettings().getPorts().getBindings().get(udp);
         int containerPort = Integer.parseInt(bindings[0].getHostPortSpec());
-        LOG.info("NGINX container host: {}, mapped UDP port: {} -> {}:{}", containerIpAddress, nginxInternalPort, containerIpAddress, containerPort);
+        LOG.info("NGINX container host: {}, mapped UDP port: {} -> {}:{}", containerIpAddress, envoyInternalPort, containerIpAddress, containerPort);
 
         try {
             // Java client sends to mapped host UDP port and expects echo
             DatagramSocket sock = new DatagramSocket();
             sock.setSoTimeout(300000);
             byte[] data = PAYLOAD;
-            DatagramPacket toNginx = new DatagramPacket(data, data.length, new InetSocketAddress(containerIpAddress, containerPort));
+            DatagramPacket toEnvoy = new DatagramPacket(data, data.length, new InetSocketAddress(containerIpAddress, containerPort));
             LOG.info("Sending {} bytes to {}:{}", data.length, containerIpAddress, containerPort);
-            sock.send(toNginx);
+            sock.send(toEnvoy);
 
             DatagramPacket resp = new DatagramPacket(new byte[4096], 4096);
             sock.receive(resp);
@@ -244,9 +263,10 @@ public class ProxyDatagramSocketIntegrationTest {
             assertEquals("hello", respStr);
             sock.close();
         } finally {
-            try { nginx.stop(); } catch (Throwable ignore) {}
+            try { envoy.stop(); } catch (Throwable ignore) {}
         }
     }
+    */
 
     static class NoopMetrics implements ProxyProtocolMetricsListener {
         @Override public void onHeaderParsed(ProxyHeader header) { }
