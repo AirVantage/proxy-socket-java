@@ -1,8 +1,7 @@
-Proxy Socket Java (UDP + TCP, Java 17)
-=======================================
+# Proxy Socket Java (UDP + TCP, Java 17)
 
-Overview
---------
+## Overview
+
 Library providing HAProxy Proxy Protocol v2 support for UDP and TCP. Multi-module layout:
 
 - proxy-socket-core: zero dependencies, parser, models, interfaces
@@ -13,8 +12,8 @@ Library providing HAProxy Proxy Protocol v2 support for UDP and TCP. Multi-modul
 
 Reference: [HAProxy Proxy Protocol Specifications](https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt)
 
-Quick start (UDP)
------------------
+## Quick start (UDP)
+
 ```java
 var socket = new net.airvantage.proxysocket.udp.ProxyDatagramSocket.Builder()
     .maxEntries(10_000)
@@ -28,8 +27,8 @@ socket.receive(packet); // header stripped, source set to real client
 socket.send(packet);    // destination rewritten to LB if cached
 ```
 
-Quick start (TCP)
------------------
+## Quick start (TCP)
+
 ```java
 try (var server = new net.airvantage.proxysocket.tcp.ProxyServerSocket(9998)) {
   for (;;) {
@@ -40,26 +39,24 @@ try (var server = new net.airvantage.proxysocket.tcp.ProxyServerSocket(9998)) {
 }
 ```
 
-License
--------
+## License
+
 MIT License © 2025 Semtech. See `LICENSE`.
 
-Metrics hook
-------------
+## Metrics hook
+
 Implement `net.airvantage.proxysocket.core.ProxySocketMetricsListener` and pass it via UDP builder or TCP server ctor.
 
-Thread safety
--------------
+## Thread safety
+
 - UDP/TCP wrappers follow JDK `DatagramSocket`/`ServerSocket`/`Socket` thread-safety; caches and listeners must be thread-safe.
 - Core parser is stateless and thread-safe.
 
-Configuration
--------------
+## Configuration
+
 - UDP cache defaults: 10k entries, 5 min TTL if Guava present; otherwise concurrent map (no TTL).
 - TCP: blocking header read on accept with configurable timeout.
 
-Examples
---------
+## Examples
+
 See `proxy-socket-examples` module: `UdpEchoWithProxyProtocol`, `TcpEchoWithProxyProtocol`.
-
-
