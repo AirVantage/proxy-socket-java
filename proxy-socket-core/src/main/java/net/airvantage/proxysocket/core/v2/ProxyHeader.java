@@ -48,6 +48,3 @@ public final class ProxyHeader {
     public boolean isLocal() { return command == Command.LOCAL; }
     public boolean isProxy() { return command == Command.PROXY; }
 }
-
-
-

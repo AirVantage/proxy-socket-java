@@ -12,6 +12,3 @@ public final class ProxyProtocolParseException extends ProxyProtocolException {
         super(message, cause);
     }
 }
-
-
-

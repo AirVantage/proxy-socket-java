@@ -15,6 +15,3 @@ public interface ProxyAddressCache {
     void invalidate(InetSocketAddress clientAddr);
     void clear();
 }
-
-
-

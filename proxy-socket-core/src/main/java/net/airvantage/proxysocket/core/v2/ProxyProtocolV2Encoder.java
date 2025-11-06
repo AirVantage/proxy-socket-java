@@ -117,6 +117,3 @@ public final class ProxyProtocolV2Encoder {
         return buf;
     }
 }
-
-
-

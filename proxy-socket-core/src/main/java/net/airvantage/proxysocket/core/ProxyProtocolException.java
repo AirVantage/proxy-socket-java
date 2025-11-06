@@ -12,6 +12,3 @@ public class ProxyProtocolException extends Exception {
         super(message, cause);
     }
 }
-
-
-

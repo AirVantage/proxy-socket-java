@@ -23,6 +23,3 @@ public final class NoOpProxyAddressCache implements ProxyAddressCache {
     @Override
     public void clear() { }
 }
-
-
-

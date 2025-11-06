@@ -25,6 +25,3 @@ public final class Tlv {
         return "Tlv{" + "type=" + type + ", len=" + value.length + ", head=" + Arrays.toString(head) + (value.length > show ? ", ..." : "") + '}';
     }
 }
-
-
-

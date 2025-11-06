@@ -44,6 +44,3 @@ public final class ConcurrentMapProxyAddressCache implements ProxyAddressCache {
         map.clear();
     }
 }
-
-
-
