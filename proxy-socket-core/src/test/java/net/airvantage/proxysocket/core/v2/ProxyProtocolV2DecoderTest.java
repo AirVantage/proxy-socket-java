@@ -1,5 +1,10 @@
-package net.airvantage.proxysocket.core.v2;
+/*
+ * MIT License
+ * Copyright (c) 2025 Semtech
 
+ * Validation of ProxyProtocolV2Decoder against hardcoded headers for known cases
+ */
+package net.airvantage.proxysocket.core.v2;
 import net.airvantage.proxysocket.core.ProxyProtocolParseException;
 import org.junit.jupiter.api.Test;
 
@@ -132,6 +137,65 @@ class ProxyProtocolV2DecoderTest {
         h[p++] = 0x00; h[p++] = 0x00;
 
         assertThrows(ProxyProtocolParseException.class, () -> ProxyProtocolV2Decoder.parse(h, 0, h.length));
+    }
+
+    @Test
+    void localHeaderHasLength16() throws Exception {
+        // Hand-crafted LOCAL header with exactly 16 bytes
+        byte verCmd = (byte) 0x20; // v2, LOCAL
+        byte famProto = (byte) 0x00; // UNSPEC + UNSPEC
+        byte[] h = new byte[SIG.length + 4];
+        int p = 0; System.arraycopy(SIG, 0, h, p, SIG.length); p += SIG.length;
+        h[p++] = verCmd; h[p++] = famProto;
+        h[p++] = 0x00; h[p++] = 0x00; // length = 0
+
+        assertEquals(16, h.length);
+        ProxyHeader parsed = ProxyProtocolV2Decoder.parse(h, 0, h.length);
+        assertEquals(16, parsed.getHeaderLength());
+    }
+
+    @Test
+    void addressLengthBeyondBufferInvalid() {
+        // Hand-crafted header with declared length exceeding actual data
+        byte verCmd = (byte) 0x21; // v2, PROXY
+        byte famProto = (byte) 0x11; // INET4 + STREAM
+        byte[] h = new byte[SIG.length + 4];
+        int p = 0; System.arraycopy(SIG, 0, h, p, SIG.length); p += SIG.length;
+        h[p++] = verCmd; h[p++] = famProto;
+        h[p++] = 0x00; h[p++] = 0x01; // length = 1 (but no data follows)
+
+        assertThrows(ProxyProtocolParseException.class, () -> ProxyProtocolV2Decoder.parse(h, 0, h.length));
+    }
+
+    @Test
+    void tlvLengthOverrunIgnored() throws Exception {
+        // Hand-crafted header with TLV whose length exceeds available buffer
+        byte verCmd = (byte) 0x21; // v2, PROXY
+        byte famProto = (byte) 0x11; // INET4 + STREAM
+
+        // IPv4 addresses + ports (12 bytes) + TLV (4 bytes)
+        byte[] payload = new byte[]{
+                // src 127.0.0.1
+                0x7F, 0x00, 0x00, 0x01,
+                // dst 127.0.0.2
+                0x7F, 0x00, 0x00, 0x02,
+                // sport 1234, dport 5678
+                0x04, (byte) 0xD2, 0x16, 0x2E,
+                // TLV: type=0x01, length=0x7FFF (huge, intentionally invalid)
+                0x01, 0x7F, (byte) 0xFF, 0x42
+        };
+
+        byte[] h = new byte[SIG.length + 4 + payload.length];
+        int p = 0; System.arraycopy(SIG, 0, h, p, SIG.length); p += SIG.length;
+        h[p++] = verCmd; h[p++] = famProto;
+        h[p++] = (byte) ((payload.length >>> 8) & 0xFF);
+        h[p++] = (byte) (payload.length & 0xFF);
+        System.arraycopy(payload, 0, h, p, payload.length);
+
+        // Parser should handle gracefully without throwing
+        ProxyHeader parsed = ProxyProtocolV2Decoder.parse(h, 0, h.length);
+        assertNotNull(parsed);
+        assertEquals(ProxyHeader.AddressFamily.INET4, parsed.getFamily());
     }
 
 }

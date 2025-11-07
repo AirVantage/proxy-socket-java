@@ -63,7 +63,9 @@ public final class ProxyProtocolV2Decoder {
 
         if (command == ProxyHeader.Command.PROXY) {
             addresses = parseAddresses(data, pos, af, tp, variableLength);
-            pos = addresses.newPos;
+            if (addresses != null) {
+                pos = addresses.newPos;
+            }
         }
 
         int consumed = pos - addrStart;

@@ -24,6 +24,13 @@
             <version>${junit.version}</version>
             <scope>test</scope>
         </dependency>
+        <!-- AWS ProProt library for test validation against known encoder -->
+        <dependency>
+            <groupId>com.amazonaws.proprot</groupId>
+            <artifactId>proprot</artifactId>
+            <version>1.0</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
 </project>
