@@ -189,9 +189,4 @@ public final class ProxyProtocolV2Decoder {
         }
         return tlvs;
     }
-
-
 }
-
-
-
