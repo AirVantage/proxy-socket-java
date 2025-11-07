@@ -50,17 +50,8 @@ public final class ProxyProtocolV2Decoder {
         int fam = famProto & 0xF0;
         int proto = famProto & 0x0F;
 
-        ProxyHeader.AddressFamily af = switch (fam) {
-            case 0x10 -> ProxyHeader.AddressFamily.INET4;
-            case 0x20 -> ProxyHeader.AddressFamily.INET6;
-            case 0x30 -> ProxyHeader.AddressFamily.UNIX;
-            default -> ProxyHeader.AddressFamily.UNSPEC;
-        };
-        ProxyHeader.TransportProtocol tp = switch (proto) {
-            case 0x01 -> ProxyHeader.TransportProtocol.STREAM; // TCP
-            case 0x02 -> ProxyHeader.TransportProtocol.DGRAM;  // UDP
-            default -> ProxyHeader.TransportProtocol.UNSPEC;
-        };
+        ProxyHeader.AddressFamily af = parseAddressFamily(fam);
+        ProxyHeader.TransportProtocol tp = parseTransportProtocol(proto);
 
         int variableLength = ((data[pos++] & 0xFF) << 8) | (data[pos++] & 0xFF);
 
@@ -68,68 +59,121 @@ public final class ProxyProtocolV2Decoder {
         if (headerLen > length) throw new ProxyProtocolParseException("Insufficient data for header");
 
         int addrStart = pos;
-        InetSocketAddress src = null;
-        InetSocketAddress dst = null;
+        AddressPair addresses = null;
 
         if (command == ProxyHeader.Command.PROXY) {
-            if (af == ProxyHeader.AddressFamily.INET4 && tp != ProxyHeader.TransportProtocol.UNSPEC) {
-                if (variableLength < 2*(IPV4_ADDR_LEN + PORT_LEN)) {
-                    throw new ProxyProtocolParseException("Truncated IPv4 address block in header");
-                }
-
-                // Extract source and destination addresses
-                InetAddress s;
-                InetAddress d;
-                try {
-                    s = InetAddress.getByAddress(new byte[]{data[pos++], data[pos++], data[pos++], data[pos++]});
-                    d = InetAddress.getByAddress(new byte[]{data[pos++], data[pos++], data[pos++], data[pos++]});
-                } catch (UnknownHostException e) {
-                    throw new ProxyProtocolParseException("Invalid IPv4 address in header", e);
-                }
-                // Extract source and destination ports
-                int sp = ((data[pos++] & 0xFF) << 8) | (data[pos++] & 0xFF);
-                int dp = ((data[pos++] & 0xFF) << 8) | (data[pos++] & 0xFF);
-                src = new InetSocketAddress(s, sp);
-                dst = new InetSocketAddress(d, dp);
-
-            } else if (af == ProxyHeader.AddressFamily.INET6 && tp != ProxyHeader.TransportProtocol.UNSPEC) {
-                if (variableLength < 2*(IPV6_ADDR_LEN + PORT_LEN)) {
-                    throw new ProxyProtocolParseException("Truncated IPv6 address block in header");
-                }
-
-                // Extract source and destination addresses
-                InetAddress s;
-                InetAddress d;
-                byte[] sb = new byte[16];
-                byte[] db = new byte[16];
-                System.arraycopy(data, pos, sb, 0, IPV6_ADDR_LEN);
-                System.arraycopy(data, pos+IPV6_ADDR_LEN, db, 0, IPV6_ADDR_LEN);
-                try {
-                    s = InetAddress.getByAddress(sb);
-                    d = InetAddress.getByAddress(db);
-                } catch (UnknownHostException e) {
-                    throw new ProxyProtocolParseException("Invalid IPv6 address in header", e);
-                }
-
-                pos += 2*IPV6_ADDR_LEN;
-                // Extract source and destination ports
-                int sp = ((data[pos++] & 0xFF) << 8) | (data[pos++] & 0xFF);
-                int dp = ((data[pos++] & 0xFF) << 8) | (data[pos++] & 0xFF);
-                src = new InetSocketAddress(s, sp);
-                dst = new InetSocketAddress(d, dp);
-
-            } else if (af == ProxyHeader.AddressFamily.UNIX) {
-                // 108 + 108 bytes path
-                if (variableLength < 2*UNIX_ADDR_LEN) {
-                    throw new ProxyProtocolParseException("Truncated UNIX address block in header");
-                }
-                pos += 2*UNIX_ADDR_LEN;
-                throw new ProxyProtocolParseException("UNIX Address Processing not implemented");
-            }
+            addresses = parseAddresses(data, pos, af, tp, variableLength);
+            pos = addresses.newPos;
         }
 
         int consumed = pos - addrStart;
         int tlvLen = Math.max(0, variableLength - consumed);
+        List<Tlv> tlvs = parseTlvs(data, pos, tlvLen);
+
+        InetSocketAddress src = addresses != null ? addresses.src : null;
+        InetSocketAddress dst = addresses != null ? addresses.dst : null;
+
+        return new ProxyHeader(command, af, tp, src, dst, tlvs, headerLen);
+    }
+
+    private static ProxyHeader.AddressFamily parseAddressFamily(int fam) {
+        return switch (fam) {
+            case 0x10 -> ProxyHeader.AddressFamily.INET4;
+            case 0x20 -> ProxyHeader.AddressFamily.INET6;
+            case 0x30 -> ProxyHeader.AddressFamily.UNIX;
+            default -> ProxyHeader.AddressFamily.UNSPEC;
+        };
+    }
+
+    private static ProxyHeader.TransportProtocol parseTransportProtocol(int proto) {
+        return switch (proto) {
+            case 0x01 -> ProxyHeader.TransportProtocol.STREAM;
+            case 0x02 -> ProxyHeader.TransportProtocol.DGRAM;
+            default -> ProxyHeader.TransportProtocol.UNSPEC;
+        };
+    }
+
+    private static class AddressPair {
+        final InetSocketAddress src;
+        final InetSocketAddress dst;
+        final int newPos;
+
+        AddressPair(InetSocketAddress src, InetSocketAddress dst, int newPos) {
+            this.src = src;
+            this.dst = dst;
+            this.newPos = newPos;
+        }
+    }
+
+    private static AddressPair parseAddresses(byte[] data, int pos, ProxyHeader.AddressFamily af, ProxyHeader.TransportProtocol tp, int variableLength)
+            throws ProxyProtocolParseException {
+        if (af == ProxyHeader.AddressFamily.INET4 && tp != ProxyHeader.TransportProtocol.UNSPEC) {
+            return parseIPv4Addresses(data, pos, variableLength);
+        } else if (af == ProxyHeader.AddressFamily.INET6 && tp != ProxyHeader.TransportProtocol.UNSPEC) {
+            return parseIPv6Addresses(data, pos, variableLength);
+        } else if (af == ProxyHeader.AddressFamily.UNIX) {
+            return parseUnixAddresses(data, pos, variableLength);
+        }
+        return null;
+    }
+
+    private static AddressPair parseIPv4Addresses(byte[] data, int pos, int variableLength)
+            throws ProxyProtocolParseException {
+        if (variableLength < 2*(IPV4_ADDR_LEN + PORT_LEN)) {
+            throw new ProxyProtocolParseException("Truncated IPv4 address block in header");
+        }
+
+        InetAddress s;
+        InetAddress d;
+        try {
+            s = InetAddress.getByAddress(new byte[]{data[pos++], data[pos++], data[pos++], data[pos++]});
+            d = InetAddress.getByAddress(new byte[]{data[pos++], data[pos++], data[pos++], data[pos++]});
+        } catch (UnknownHostException e) {
+            throw new ProxyProtocolParseException("Invalid IPv4 address in header", e);
+        }
+
+        int sp = ((data[pos++] & 0xFF) << 8) | (data[pos++] & 0xFF);
+        int dp = ((data[pos++] & 0xFF) << 8) | (data[pos++] & 0xFF);
+
+        return new AddressPair(new InetSocketAddress(s, sp), new InetSocketAddress(d, dp), pos);
+    }
+
+    private static AddressPair parseIPv6Addresses(byte[] data, int pos, int variableLength)
+            throws ProxyProtocolParseException {
+        if (variableLength < 2*(IPV6_ADDR_LEN + PORT_LEN)) {
+            throw new ProxyProtocolParseException("Truncated IPv6 address block in header");
+        }
+
+        InetAddress s;
+        InetAddress d;
+        byte[] sb = new byte[16];
+        byte[] db = new byte[16];
+        System.arraycopy(data, pos, sb, 0, IPV6_ADDR_LEN);
+        System.arraycopy(data, pos+IPV6_ADDR_LEN, db, 0, IPV6_ADDR_LEN);
+        try {
+            s = InetAddress.getByAddress(sb);
+            d = InetAddress.getByAddress(db);
+        } catch (UnknownHostException e) {
+            throw new ProxyProtocolParseException("Invalid IPv6 address in header", e);
+        }
+
+        pos += 2*IPV6_ADDR_LEN;
+        int sp = ((data[pos++] & 0xFF) << 8) | (data[pos++] & 0xFF);
+        int dp = ((data[pos++] & 0xFF) << 8) | (data[pos++] & 0xFF);
+
+        return new AddressPair(new InetSocketAddress(s, sp), new InetSocketAddress(d, dp), pos);
+    }
+
+    private static AddressPair parseUnixAddresses(byte[] data, int pos, int variableLength)
+            throws ProxyProtocolParseException {
+        if (variableLength < 2*UNIX_ADDR_LEN) {
+            throw new ProxyProtocolParseException("Truncated UNIX address block in header");
+        }
+        pos += 2*UNIX_ADDR_LEN;
+        throw new ProxyProtocolParseException("UNIX Address Processing not implemented");
+    }
+
+    private static List<Tlv> parseTlvs(byte[] data, int pos, int tlvLen) {
         List<Tlv> tlvs = new ArrayList<>();
         int tlvPos = pos;
         int tlvEnd = tlvPos + tlvLen;
@@ -141,9 +185,10 @@ public final class ProxyProtocolV2Decoder {
             tlvs.add(new Tlv(type, data, tlvPos, len));
             tlvPos += len;
         }
-
-        return new ProxyHeader(command, af, tp, src, dst, tlvs, headerLen);
+        return tlvs;
     }
+
+
 }
 
 
