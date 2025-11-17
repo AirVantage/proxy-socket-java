@@ -11,7 +11,7 @@ import java.util.List;
 public final class ProxyHeader {
     public enum Command { LOCAL, PROXY }
     public enum AddressFamily { INET4, INET6, UNIX, UNSPEC }
-    public enum TransportProtocol { STREAM, DGRAM, UNSPEC }
+    public enum TransportProtocol { UNSPEC, STREAM, DGRAM }
 
     private final Command command;
     private final AddressFamily family;
