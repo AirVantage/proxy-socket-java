@@ -30,7 +30,6 @@ public final class ProxyProtocolV2Decoder {
         if (data == null || offset < 0 || length < 0) throw new IllegalArgumentException("Invalid arguments");
         if ((length+offset) > data.length) throw new IllegalArgumentException("Invalid offset/length combination with data length");
 
-        int end = offset + length;
         if (PROTOCOL_SIGNATURE_FIXED_LENGTH > length) throw new ProxyProtocolParseException("Insufficient data for header");
 
         for (int i = 0; i < PROTOCOL_SIGNATURE.length; i++) {
