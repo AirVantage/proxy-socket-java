@@ -5,6 +5,8 @@
 package net.airvantage.proxysocket.core;
 
 public class ProxyProtocolException extends Exception {
+    private static final long serialVersionUID = 1L;
+
     public ProxyProtocolException(String message) {
         super(message);
     }
