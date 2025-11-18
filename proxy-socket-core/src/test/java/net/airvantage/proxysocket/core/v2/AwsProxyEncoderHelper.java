@@ -36,10 +36,10 @@ public final class AwsProxyEncoderHelper {
 
     public AwsProxyEncoderHelper family(ProxyHeader.AddressFamily fam) {
         this.family = switch (fam) {
-            case UNSPEC -> ProxyProtocolSpec.AddressFamily.AF_UNSPEC;
-            case INET4 -> ProxyProtocolSpec.AddressFamily.AF_INET;
-            case INET6 -> ProxyProtocolSpec.AddressFamily.AF_INET6;
-            case UNIX -> ProxyProtocolSpec.AddressFamily.AF_UNIX;
+            case AF_UNSPEC -> ProxyProtocolSpec.AddressFamily.AF_UNSPEC;
+            case AF_INET -> ProxyProtocolSpec.AddressFamily.AF_INET;
+            case AF_INET6 -> ProxyProtocolSpec.AddressFamily.AF_INET6;
+            case AF_UNIX -> ProxyProtocolSpec.AddressFamily.AF_UNIX;
         };
         return this;
     }

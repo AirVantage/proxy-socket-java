@@ -44,7 +44,7 @@ class ProxyProtocolV2DecoderTest {
 
         ProxyHeader parsed = ProxyProtocolV2Decoder.parse(h, 0, h.length);
         assertEquals(ProxyHeader.Command.PROXY, parsed.getCommand());
-        assertEquals(ProxyHeader.AddressFamily.INET4, parsed.getFamily());
+        assertEquals(ProxyHeader.AddressFamily.AF_INET, parsed.getFamily());
         assertEquals(ProxyHeader.TransportProtocol.STREAM, parsed.getProtocol());
         assertEquals(12345, parsed.getSourceAddress().getPort());
         assertEquals(443, parsed.getDestinationAddress().getPort());
@@ -75,7 +75,7 @@ class ProxyProtocolV2DecoderTest {
         System.arraycopy(addr, 0, h, p, addr.length);
 
         ProxyHeader parsed = ProxyProtocolV2Decoder.parse(h, 0, h.length);
-        assertEquals(ProxyHeader.AddressFamily.INET6, parsed.getFamily());
+        assertEquals(ProxyHeader.AddressFamily.AF_INET6, parsed.getFamily());
         assertEquals(ProxyHeader.TransportProtocol.DGRAM, parsed.getProtocol());
         assertEquals(1000, parsed.getSourceAddress().getPort());
         assertEquals(2000, parsed.getDestinationAddress().getPort());
@@ -111,7 +111,7 @@ class ProxyProtocolV2DecoderTest {
         System.arraycopy(tlv, 0, h, p, tlv.length);
 
         ProxyHeader parsed = ProxyProtocolV2Decoder.parse(h, 0, h.length);
-        assertEquals(ProxyHeader.AddressFamily.UNSPEC, parsed.getFamily());
+        assertEquals(ProxyHeader.AddressFamily.AF_UNSPEC, parsed.getFamily());
         assertNotNull(parsed.getTlvs());
         assertEquals(1, parsed.getTlvs().size());
         assertArrayEquals(new byte[]{0x10, 0x20, 0x30}, parsed.getTlvs().get(0).getValue());
@@ -195,7 +195,7 @@ class ProxyProtocolV2DecoderTest {
         // Parser should handle gracefully without throwing
         ProxyHeader parsed = ProxyProtocolV2Decoder.parse(h, 0, h.length);
         assertNotNull(parsed);
-        assertEquals(ProxyHeader.AddressFamily.INET4, parsed.getFamily());
+        assertEquals(ProxyHeader.AddressFamily.AF_INET, parsed.getFamily());
     }
 
 }
