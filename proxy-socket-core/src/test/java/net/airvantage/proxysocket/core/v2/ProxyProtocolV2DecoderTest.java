@@ -110,7 +110,7 @@ class ProxyProtocolV2DecoderTest {
         h[p++] = 0x00; h[p++] = (byte) tlv.length;
         System.arraycopy(tlv, 0, h, p, tlv.length);
 
-        ProxyHeader parsed = ProxyProtocolV2Decoder.parse(h, 0, h.length);
+        ProxyHeader parsed = ProxyProtocolV2Decoder.parse(h, 0, h.length, true);
         assertEquals(ProxyHeader.AddressFamily.AF_UNSPEC, parsed.getFamily());
         assertNotNull(parsed.getTlvs());
         assertEquals(1, parsed.getTlvs().size());
@@ -193,7 +193,7 @@ class ProxyProtocolV2DecoderTest {
         System.arraycopy(payload, 0, h, p, payload.length);
 
         // Parser should handle gracefully without throwing
-        ProxyHeader parsed = ProxyProtocolV2Decoder.parse(h, 0, h.length);
+        ProxyHeader parsed = ProxyProtocolV2Decoder.parse(h, 0, h.length, true);
         assertNotNull(parsed);
         assertEquals(ProxyHeader.AddressFamily.AF_INET, parsed.getFamily());
     }

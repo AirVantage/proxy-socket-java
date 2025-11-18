@@ -31,7 +31,7 @@ jobs:
 
       - name: Build and test
         run: |
-          mvn -B -e -DskipITs=true -DskipIT=true -DskipITsTests=true -DskipIntegrationTests=true -DskipDocker=true -DskipNative=true -DskipExamples=true --fail-at-end clean verify
+          mvn -B -e --fail-at-end clean verify
 
       - name: Upload test reports
         if: always()

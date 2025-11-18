@@ -43,7 +43,7 @@ class ProxyProtocolV2Test {
                 .addTlv(0xEA, new byte[]{0x41, 0x42})  // Use non-reserved TLV type
                 .build();
 
-        ProxyHeader parsed = ProxyProtocolV2Decoder.parse(header, 0, header.length);
+        ProxyHeader parsed = ProxyProtocolV2Decoder.parse(header, 0, header.length, true);
         assertEquals(ProxyHeader.AddressFamily.AF_INET6, parsed.getFamily());
         assertEquals(ProxyHeader.TransportProtocol.DGRAM, parsed.getProtocol());
         // AWS ProProt adds extra TLVs, find our custom TLV
@@ -89,7 +89,7 @@ class ProxyProtocolV2Test {
                 .addTlv(0xEE, new byte[]{0x10, 0x20, 0x30})
                 .build();
 
-        ProxyHeader parsed = ProxyProtocolV2Decoder.parse(header, 0, header.length);
+        ProxyHeader parsed = ProxyProtocolV2Decoder.parse(header, 0, header.length, true);
         assertEquals(ProxyHeader.AddressFamily.AF_UNSPEC, parsed.getFamily());
         // AWS ProProt adds extra TLVs, find our custom TLV
         assertTrue(parsed.getTlvs().size() >= 1);

@@ -27,6 +27,10 @@ public final class ProxyProtocolV2Decoder {
     private static final int TLV_HEADER_LEN = 3;
 
     public static ProxyHeader parse(byte[] data, int offset, int length) throws ProxyProtocolParseException, IllegalArgumentException {
+        return parse(data, offset, length, false);
+    }
+
+    public static ProxyHeader parse(byte[] data, int offset, int length, boolean parseTlvs) throws ProxyProtocolParseException, IllegalArgumentException {
         if (data == null || offset < 0 || length < 0) throw new IllegalArgumentException("Invalid arguments");
         if ((length+offset) > data.length) throw new IllegalArgumentException("Invalid offset/length combination with data length");
 
@@ -78,8 +82,11 @@ public final class ProxyProtocolV2Decoder {
             pos += addresses.bytesConsumed;
         }
 
-        int tlvLen = Math.max(0, variableLength - (addresses != null ? addresses.bytesConsumed : 0));
-        List<Tlv> tlvs = parseTlvs(data, pos, tlvLen);
+        List<Tlv> tlvs = null;
+        if (parseTlvs) {
+            int tlvLen = Math.max(0, variableLength - (addresses != null ? addresses.bytesConsumed : 0));
+            tlvs = parseTlvs(data, pos, tlvLen);
+        }
 
         InetSocketAddress src = addresses != null ? addresses.src : null;
         InetSocketAddress dst = addresses != null ? addresses.dst : null;
