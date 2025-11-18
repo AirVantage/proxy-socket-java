@@ -17,25 +17,16 @@ public final class ConcurrentMapProxyAddressCache implements ProxyAddressCache {
 
     @Override
     public void put(InetSocketAddress clientAddr, InetSocketAddress proxyAddr) {
-        if (clientAddr == null || proxyAddr == null) {
-            return;
-        }
         map.put(clientAddr, proxyAddr);
     }
 
     @Override
     public InetSocketAddress get(InetSocketAddress clientAddr) {
-        if (clientAddr == null) {
-            return null;
-        }
         return map.get(clientAddr);
     }
 
     @Override
     public void invalidate(InetSocketAddress clientAddr) {
-        if (clientAddr == null) {
-            return;
-        }
         map.remove(clientAddr);
     }
 

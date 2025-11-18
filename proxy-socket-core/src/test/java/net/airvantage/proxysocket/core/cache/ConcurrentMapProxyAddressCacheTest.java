@@ -63,34 +63,6 @@ class ConcurrentMapProxyAddressCacheTest {
     }
 
     @Test
-    void testPutNullClientAddress() {
-        cache.put(null, proxyAddr1);
-        // Should not throw exception, just ignore
-        assertNull(cache.get(clientAddr1));
-    }
-
-    @Test
-    void testPutNullProxyAddress() {
-        cache.put(clientAddr1, null);
-        // Should not throw exception, just ignore
-        assertNull(cache.get(clientAddr1));
-    }
-
-    @Test
-    void testPutBothNull() {
-        cache.put(null, null);
-        // Should not throw exception
-        assertNull(cache.get(clientAddr1));
-    }
-
-    @Test
-    void testGetNullAddress() {
-        cache.put(clientAddr1, proxyAddr1);
-        InetSocketAddress result = cache.get(null);
-        assertNull(result);
-    }
-
-    @Test
     void testInvalidate() {
         cache.put(clientAddr1, proxyAddr1);
         cache.put(clientAddr2, proxyAddr2);
