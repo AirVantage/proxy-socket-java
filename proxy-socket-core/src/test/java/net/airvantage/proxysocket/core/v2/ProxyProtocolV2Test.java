@@ -10,7 +10,6 @@ import net.airvantage.proxysocket.core.ProxyProtocolParseException;
 import org.junit.jupiter.api.Test;
 
 import java.net.InetSocketAddress;
-import java.nio.charset.StandardCharsets;
 
 import static org.junit.jupiter.api.Assertions.*;
 
