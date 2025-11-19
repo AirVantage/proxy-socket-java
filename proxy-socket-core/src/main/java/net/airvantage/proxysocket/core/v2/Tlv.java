@@ -20,8 +20,8 @@ public final class Tlv {
 
     @Override
     public String toString() {
-        int show = Math.min(value.length, 16);
-        byte[] head = Arrays.copyOf(value, show);
-        return "Tlv{" + "type=" + type + ", len=" + value.length + ", head=" + Arrays.toString(head) + (value.length > show ? ", ..." : "") + '}';
+        int displayLimit = Math.min(value.length, 16);
+        byte[] head = Arrays.copyOf(value, displayLimit);
+        return "Tlv{" + "type=" + type + ", len=" + value.length + ", head=" + Arrays.toString(head) + (value.length > displayLimit ? ", ..." : "") + '}';
     }
 }
