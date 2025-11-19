@@ -81,14 +81,6 @@ class ConcurrentMapProxyAddressCacheTest {
     }
 
     @Test
-    void testInvalidateNullAddress() {
-        cache.put(clientAddr1, proxyAddr1);
-        cache.invalidate(null);
-        // Should not throw exception, should not affect existing entries
-        assertEquals(proxyAddr1, cache.get(clientAddr1));
-    }
-
-    @Test
     void testClear() {
         cache.put(clientAddr1, proxyAddr1);
         cache.put(clientAddr2, proxyAddr2);

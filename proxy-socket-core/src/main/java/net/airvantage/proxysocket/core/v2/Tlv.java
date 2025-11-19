@@ -15,7 +15,7 @@ public final class Tlv {
         this.value = data;
     }
 
-    public static extractTlvFromPacket(int type, byte[] packet, int offset, int length) {
+    public static Tlv extractTlvFromPacket(int type, byte[] packet, int offset, int length) {
         byte[] data = Arrays.copyOfRange(packet, offset, offset + length);
         return new Tlv(type, data);
     }

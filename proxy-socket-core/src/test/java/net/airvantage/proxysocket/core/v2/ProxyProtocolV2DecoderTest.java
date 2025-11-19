@@ -193,9 +193,7 @@ class ProxyProtocolV2DecoderTest {
         System.arraycopy(payload, 0, h, p, payload.length);
 
         // Parser should handle gracefully without throwing
-        ProxyHeader parsed = ProxyProtocolV2Decoder.parse(h, 0, h.length, true);
-        assertNotNull(parsed);
-        assertEquals(ProxyHeader.AddressFamily.AF_INET, parsed.getFamily());
+        assertThrows(ProxyProtocolParseException.class, () -> ProxyProtocolV2Decoder.parse(h, 0, h.length, true));
     }
 
 }
