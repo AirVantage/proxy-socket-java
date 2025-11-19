@@ -10,9 +10,14 @@ public final class Tlv {
     private final int type;
     private final byte[] value;
 
-    public Tlv(int type, byte[] data, int offset, int length) {
+    public Tlv(int type, byte[] data) {
         this.type = type;
-        this.value = Arrays.copyOfRange(data, offset, offset + length);
+        this.value = data;
+    }
+
+    public static extractTlvFromPacket(int type, byte[] packet, int offset, int length) {
+        byte[] data = Arrays.copyOfRange(packet, offset, offset + length);
+        return new Tlv(type, data);
     }
 
     public int getType() { return type; }

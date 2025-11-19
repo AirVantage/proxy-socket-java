@@ -199,16 +199,19 @@ public final class ProxyProtocolV2Decoder {
         return new AddressPair(null, null, UNIX_ADDR_PAIR_LEN);
     }
 
-    private static List<Tlv> parseTlvs(byte[] data, int pos, int tlvLen) {
+    private static List<Tlv> parseTlvs(byte[] data, int tlvPos, int tlvLen)
+        throws ProxyProtocolParseException {
         List<Tlv> tlvs = new ArrayList<>();
-        int tlvPos = pos;
+
         int tlvEnd = tlvPos + tlvLen;
         while (tlvPos + TLV_HEADER_LEN <= tlvEnd) {
             int type = data[tlvPos++] & 0xFF;
             int len = ((data[tlvPos++] & 0xFF) << 8) | (data[tlvPos++] & 0xFF);
 
-            if (tlvPos + len > tlvEnd) break;
-            tlvs.add(new Tlv(type, data, tlvPos, len));
+            if (tlvPos + len > tlvEnd) {
+                throw new ProxyProtocolParseException("Truncated TLV in header");
+            }
+            tlvs.add(Tlv.extractTlvFromPacket(type, data, tlvPos, len));
             tlvPos += len;
         }
         return tlvs;
