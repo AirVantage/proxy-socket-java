@@ -8,7 +8,6 @@ import net.airvantage.proxysocket.core.ProxyProtocolParseException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
