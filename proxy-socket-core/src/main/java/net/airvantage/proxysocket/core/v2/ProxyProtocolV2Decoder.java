@@ -30,10 +30,17 @@ public final class ProxyProtocolV2Decoder {
     }
 
     public static ProxyHeader parse(byte[] data, int offset, int length, boolean parseTlvs) throws ProxyProtocolParseException, IllegalArgumentException {
-        if (data == null || offset < 0 || length < 0) throw new IllegalArgumentException("Invalid arguments");
-        if ((length+offset) > data.length) throw new IllegalArgumentException("Invalid offset/length combination with data length");
+        if (data == null || offset < 0 || length < 0) {
+            throw new IllegalArgumentException("Invalid arguments");
+        }
 
-        if (PROTOCOL_SIGNATURE_FIXED_LENGTH > length) throw new ProxyProtocolParseException("Insufficient data for header");
+        if ((length+offset) > data.length) {
+            throw new IllegalArgumentException("Invalid offset/length combination with data length");
+        }
+
+        if (PROTOCOL_SIGNATURE_FIXED_LENGTH > length) {
+            throw new ProxyProtocolParseException("Insufficient data for header");
+        }
 
         for (int i = 0; i < PROTOCOL_SIGNATURE.length; i++) {
             if (data[offset + i] != PROTOCOL_SIGNATURE[i]) {
@@ -46,8 +53,12 @@ public final class ProxyProtocolV2Decoder {
         // Byte 13: version/command
         int verCmd = data[pos++] & 0xFF;
         int version = (verCmd >> 4) & 0x0F;
-        if (version != 2) throw new ProxyProtocolParseException("Invalid version");
         int cmd = verCmd & 0x0F;
+
+        if (version != 2) {
+            throw new ProxyProtocolParseException("Invalid version");
+        }
+
         ProxyHeader.Command command;
         switch (cmd) {
             case 0x00:
@@ -73,7 +84,9 @@ public final class ProxyProtocolV2Decoder {
 
         // Check if we have enough data for the header
         int headerLen = PROTOCOL_SIGNATURE_FIXED_LENGTH + variableLength;
-        if (headerLen > length) throw new ProxyProtocolParseException("Insufficient data for header");
+        if (headerLen > length) {
+            throw new ProxyProtocolParseException("Insufficient data for header");
+        }
 
         AddressPair addresses = null;
         if (af != ProxyHeader.AddressFamily.AF_UNSPEC) {
