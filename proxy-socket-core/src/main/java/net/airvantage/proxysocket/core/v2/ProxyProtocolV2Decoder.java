@@ -1,5 +1,5 @@
-/*
- * MIT License
+/**
+ * BSD-3-Clause License.
  * Copyright (c) 2025 Semtech
  */
 package net.airvantage.proxysocket.core.v2;
@@ -90,7 +90,12 @@ public final class ProxyProtocolV2Decoder {
 
         AddressPair addresses = null;
         if (af != ProxyHeader.AddressFamily.AF_UNSPEC) {
-            addresses = parseAddresses(data, pos, af, variableLength);
+            addresses = switch (af) {
+                case AF_INET -> parseIPv4Addresses(data, pos, variableLength);
+                case AF_INET6 -> parseIPv6Addresses(data, pos, variableLength);
+                case AF_UNIX -> parseUnixAddresses(data, pos, variableLength);
+                default -> throw new ProxyProtocolParseException("Invalid address family");
+            };
             pos += addresses.bytesConsumed;
         }
 
@@ -139,17 +144,7 @@ public final class ProxyProtocolV2Decoder {
         }
     }
 
-    private static AddressPair parseAddresses(byte[] data, int currentPosition, ProxyHeader.AddressFamily af, int variableLength)
-            throws ProxyProtocolParseException {
-        return switch (af) {
-            case AF_INET -> parseIPv4Addresses(data, currentPosition, variableLength);
-            case AF_INET6 -> parseIPv6Addresses(data, currentPosition, variableLength);
-            case AF_UNIX -> parseUnixAddresses(data, currentPosition, variableLength);
-            default -> throw new ProxyProtocolParseException("Invalid address family");
-        };
-    }
-
-    private static int IPV4_ADDR_PAIR_LEN = 2*(IPV4_ADDR_LEN + PORT_LEN);
+    private static final int IPV4_ADDR_PAIR_LEN = 2*(IPV4_ADDR_LEN + PORT_LEN);
     private static AddressPair parseIPv4Addresses(byte[] data, int pos, int variableLength)
             throws ProxyProtocolParseException {
         if (variableLength < IPV4_ADDR_PAIR_LEN) {
@@ -166,12 +161,12 @@ public final class ProxyProtocolV2Decoder {
         }
 
         int sp = ((data[pos++] & 0xFF) << 8) | (data[pos++] & 0xFF);
-        int dp = ((data[pos++] & 0xFF) << 8) | (data[pos++] & 0xFF);
+        int dp = ((data[pos++] & 0xFF) << 8) | (data[pos  ] & 0xFF);
 
         return new AddressPair(new InetSocketAddress(s, sp), new InetSocketAddress(d, dp), IPV4_ADDR_PAIR_LEN);
     }
 
-    private static int IPV6_ADDR_PAIR_LEN = 2*(IPV6_ADDR_LEN + PORT_LEN);
+    private static final int IPV6_ADDR_PAIR_LEN = 2*(IPV6_ADDR_LEN + PORT_LEN);
     private static AddressPair parseIPv6Addresses(byte[] data, int pos, int variableLength)
             throws ProxyProtocolParseException {
         if (variableLength < IPV6_ADDR_PAIR_LEN) {
@@ -193,12 +188,12 @@ public final class ProxyProtocolV2Decoder {
 
         pos += 2*IPV6_ADDR_LEN;
         int sp = ((data[pos++] & 0xFF) << 8) | (data[pos++] & 0xFF);
-        int dp = ((data[pos++] & 0xFF) << 8) | (data[pos++] & 0xFF);
+        int dp = ((data[pos++] & 0xFF) << 8) | (data[pos  ] & 0xFF);
 
         return new AddressPair(new InetSocketAddress(s, sp), new InetSocketAddress(d, dp), IPV6_ADDR_PAIR_LEN);
     }
 
-    private static int UNIX_ADDR_PAIR_LEN = 2*UNIX_ADDR_LEN;
+    private static final int UNIX_ADDR_PAIR_LEN = 2*UNIX_ADDR_LEN;
     private static AddressPair parseUnixAddresses(byte[] data, int pos, int variableLength)
             throws ProxyProtocolParseException {
         if (variableLength < UNIX_ADDR_PAIR_LEN) {
