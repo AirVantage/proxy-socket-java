@@ -5,6 +5,10 @@
 package net.airvantage.proxysocket.core.v2;
 
 import net.airvantage.proxysocket.core.ProxyProtocolParseException;
+import net.airvantage.proxysocket.core.v2.ProxyHeader.TransportProtocol;
+import net.airvantage.proxysocket.core.v2.ProxyHeader.AddressFamily;
+import net.airvantage.proxysocket.core.v2.ProxyHeader.Command;
+
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
@@ -24,6 +28,8 @@ public final class ProxyProtocolV2Decoder {
     private static final int UNIX_ADDR_LEN = 216;
     private static final int PORT_LEN = 2;
     private static final int TLV_HEADER_LEN = 3;
+
+    private record AddressPair(InetSocketAddress src, InetSocketAddress dst, int bytesConsumed) {}
 
     public static ProxyHeader parse(byte[] data, int offset, int length) throws ProxyProtocolParseException, IllegalArgumentException {
         return parse(data, offset, length, false);
@@ -59,13 +65,13 @@ public final class ProxyProtocolV2Decoder {
             throw new ProxyProtocolParseException("Invalid version");
         }
 
-        ProxyHeader.Command command;
+        Command command;
         switch (cmd) {
             case 0x00:
                 // Early return for LOCAL command
-                return new ProxyHeader(ProxyHeader.Command.LOCAL, ProxyHeader.AddressFamily.AF_UNSPEC, ProxyHeader.TransportProtocol.UNSPEC, null, null, null, PROTOCOL_SIGNATURE_FIXED_LENGTH);
+                return new ProxyHeader(Command.LOCAL, AddressFamily.AF_UNSPEC, TransportProtocol.UNSPEC, null, null, null, PROTOCOL_SIGNATURE_FIXED_LENGTH);
             case 0x01:
-                command = ProxyHeader.Command.PROXY;
+                command = Command.PROXY;
                 break;
             default:
                 throw new ProxyProtocolParseException("Invalid command");
@@ -76,8 +82,8 @@ public final class ProxyProtocolV2Decoder {
         int fam = famProto & 0xF0;
         int proto = famProto & 0x0F;
 
-        ProxyHeader.AddressFamily af = parseAddressFamily(fam);
-        ProxyHeader.TransportProtocol tp = parseTransportProtocol(proto);
+        AddressFamily af = parseAddressFamily(fam);
+        TransportProtocol tp = parseTransportProtocol(proto);
 
         // Byte 15, 16: Length of address part of the header, including TLVs
         int variableLength = ((data[pos++] & 0xFF) << 8) | (data[pos++] & 0xFF);
@@ -89,7 +95,7 @@ public final class ProxyProtocolV2Decoder {
         }
 
         AddressPair addresses = null;
-        if (af != ProxyHeader.AddressFamily.AF_UNSPEC) {
+        if (af != AddressFamily.AF_UNSPEC) {
             addresses = switch (af) {
                 case AF_INET -> parseIPv4Addresses(data, pos, variableLength);
                 case AF_INET6 -> parseIPv6Addresses(data, pos, variableLength);
@@ -111,37 +117,25 @@ public final class ProxyProtocolV2Decoder {
         return new ProxyHeader(command, af, tp, src, dst, tlvs, headerLen);
     }
 
-    private static ProxyHeader.AddressFamily parseAddressFamily(int fam)
+    private static AddressFamily parseAddressFamily(int fam)
         throws ProxyProtocolParseException {
         return switch (fam) {
-            case 0x00 -> ProxyHeader.AddressFamily.AF_UNSPEC;
-            case 0x10 -> ProxyHeader.AddressFamily.AF_INET;
-            case 0x20 -> ProxyHeader.AddressFamily.AF_INET6;
-            case 0x30 -> ProxyHeader.AddressFamily.AF_UNIX;
+            case 0x00 -> AddressFamily.AF_UNSPEC;
+            case 0x10 -> AddressFamily.AF_INET;
+            case 0x20 -> AddressFamily.AF_INET6;
+            case 0x30 -> AddressFamily.AF_UNIX;
             default -> throw new ProxyProtocolParseException("Invalid address family");
         };
     }
 
-    private static ProxyHeader.TransportProtocol parseTransportProtocol(int proto)
+    private static TransportProtocol parseTransportProtocol(int proto)
         throws ProxyProtocolParseException {
         return switch (proto) {
-            case 0x00 -> ProxyHeader.TransportProtocol.UNSPEC;
-            case 0x01 -> ProxyHeader.TransportProtocol.STREAM;
-            case 0x02 -> ProxyHeader.TransportProtocol.DGRAM;
+            case 0x00 -> TransportProtocol.UNSPEC;
+            case 0x01 -> TransportProtocol.STREAM;
+            case 0x02 -> TransportProtocol.DGRAM;
             default -> throw new ProxyProtocolParseException("Invalid transport protocol");
         };
-    }
-
-    private static class AddressPair {
-        final InetSocketAddress src;
-        final InetSocketAddress dst;
-        final int bytesConsumed;
-
-        AddressPair(InetSocketAddress src, InetSocketAddress dst, int bytesConsumed) {
-            this.src = src;
-            this.dst = dst;
-            this.bytesConsumed = bytesConsumed;
-        }
     }
 
     private static final int IPV4_ADDR_PAIR_LEN = 2*(IPV4_ADDR_LEN + PORT_LEN);
