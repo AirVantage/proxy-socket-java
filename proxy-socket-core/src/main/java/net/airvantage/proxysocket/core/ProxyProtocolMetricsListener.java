@@ -16,4 +16,7 @@ public interface ProxyProtocolMetricsListener {
     default void onParseError(Exception e) {}
     default void onCacheHit(InetSocketAddress client) {}
     default void onCacheMiss(InetSocketAddress client) {}
+    default void onUntrustedProxy(InetSocketAddress proxy) {}
+    default void onTrustedProxy(InetSocketAddress proxy) {}
+    default void onLocal(InetSocketAddress proxy) {}
 }

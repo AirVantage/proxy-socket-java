@@ -1,12 +1,11 @@
-/*
- * MIT License
+/**
+ * BSD-3-Clause License.
  * Copyright (c) 2025 Semtech
  */
 package net.airvantage.proxysocket.udp;
 
 import net.airvantage.proxysocket.core.ProxyAddressCache;
 import net.airvantage.proxysocket.core.ProxyProtocolMetricsListener;
-import net.airvantage.proxysocket.core.cache.ConcurrentMapProxyAddressCache;
 import net.airvantage.proxysocket.core.v2.ProxyHeader;
 import net.airvantage.proxysocket.core.v2.ProxyProtocolV2Decoder;
 
@@ -16,7 +15,6 @@ import java.net.DatagramSocket;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.SocketException;
-import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.function.Predicate;
@@ -57,29 +55,40 @@ public class ProxyDatagramSocket extends DatagramSocket {
     public ProxyDatagramSocket setTrustedProxy(Predicate<InetSocketAddress> predicate) { this.trustedProxyPredicate = predicate; return this; }
 
     @Override
-    public void receive(DatagramPacket packet) throws IOException {
+    public void receive(DatagramPacket packet)
+        throws IOException, SocketTimeoutException, PortUnreachableException, IllegalBlockingModeException {
+
         super.receive(packet);
+
         try {
             InetSocketAddress lbAddress = (InetSocketAddress) packet.getSocketAddress();
             if (trustedProxyPredicate != null && !trustedProxyPredicate.test(lbAddress)) {
                 // Untrusted source: do not parse, deliver original packet
+                LOG.log(Level.DEBUG, "Untrusted proxy source; delivering original packet.");
+                if (metrics != null) metrics.onUntrustedProxy(lbAddress);
                 return;
             }
 
             ProxyHeader header = ProxyProtocolV2Decoder.parse(packet.getData(), packet.getOffset(), packet.getLength());
             if (metrics != null) metrics.onHeaderParsed(header);
+
             if (header.isLocal()) {
                 // LOCAL: not proxied
-            } else if (header.isProxy() && header.getProtocol() == ProxyHeader.TransportProtocol.DGRAM) {
+                if (metrics != null) metrics.onLocal(lbAddress);
+            }
+            if (header.isProxy() && header.getProtocol() == ProxyHeader.TransportProtocol.DGRAM) {
+                if (metrics != null) metrics.onTrustedProxy(lbAddress);
+
                 InetSocketAddress realClient = header.getSourceAddress();
-                if (realClient != null && lbAddress != null) {
+                if (realClient != null) { // could be null if address family is unspecified or unix
                     if (addressCache != null) addressCache.put(realClient, lbAddress);
                     packet.setSocketAddress(realClient);
                 }
             }
+
             int headerLen = header.getHeaderLength();
             packet.setData(packet.getData(), packet.getOffset() + headerLen, packet.getLength() - headerLen);
-        } catch (Exception e) {
+        } catch (ProxyProtocolParseException e) {
             LOG.log(Level.WARNING, "Proxy socket parse error; delivering original packet.", e);
             if (metrics != null) metrics.onParseError(e);
         }
@@ -89,12 +98,14 @@ public class ProxyDatagramSocket extends DatagramSocket {
     public void send(DatagramPacket packet) throws IOException {
         InetSocketAddress client = (InetSocketAddress) packet.getSocketAddress();
         InetSocketAddress lb = addressCache != null ? addressCache.get(client) : null;
+
         if (lb != null) {
             packet.setSocketAddress(lb);
             if (metrics != null) metrics.onCacheHit(client);
         } else {
             if (metrics != null) metrics.onCacheMiss(client);
         }
+
         super.send(packet);
     }
 }
