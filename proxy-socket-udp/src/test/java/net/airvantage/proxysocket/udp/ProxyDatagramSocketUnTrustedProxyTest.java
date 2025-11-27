@@ -30,15 +30,22 @@ class ProxyDatagramSocketUnTrustedProxyTest {
     private ProxyDatagramSocket socket;
     private ProxyAddressCache mockCache;
     private ProxyProtocolMetricsListener mockMetrics;
+    private InetSocketAddress realClient;
+    private InetSocketAddress serviceAddress;
+    private InetSocketAddress backendAddress;
     private int localPort;
+    private byte[] buffer = new byte[2048];
 
     @BeforeEach
     void setUp() throws Exception {
         mockCache = mock(ProxyAddressCache.class);
         mockMetrics = mock(ProxyProtocolMetricsListener.class);
 
+        realClient = new InetSocketAddress(InetAddress.getLoopbackAddress(), 12345);
+        serviceAddress = new InetSocketAddress(InetAddress.getLoopbackAddress(), 54321);
         socket = new ProxyDatagramSocket(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), mockCache, mockMetrics, addr -> false);
         localPort = socket.getLocalPort();
+        backendAddress = new InetSocketAddress(InetAddress.getLoopbackAddress(), localPort);
     }
 
     @AfterEach
@@ -50,30 +57,25 @@ class ProxyDatagramSocketUnTrustedProxyTest {
 
     @Test
     void receive_withUntrustedProxy_doesNotStripHeader() throws Exception {
-        InetSocketAddress clientAddress = new InetSocketAddress("127.0.0.1", 12345);
         InetAddress lbAddress;
 
         byte[] payload = "test".getBytes(StandardCharsets.UTF_8);
         byte[] proxyHeader = new AwsProxyEncoderHelper()
                 .family(ProxyHeader.AddressFamily.AF_INET)
                 .socket(ProxyHeader.TransportProtocol.DGRAM)
-                .source(clientAddress)
-                .destination(new InetSocketAddress("127.0.0.1", localPort))
+                .source(realClient)
+                .destination(serviceAddress)
                 .build();
 
-        byte[] packet = new byte[proxyHeader.length + payload.length];
-        System.arraycopy(proxyHeader, 0, packet, 0, proxyHeader.length);
-        System.arraycopy(payload, 0, packet, proxyHeader.length, payload.length);
+        byte[] packet = Utility.createPacket(proxyHeader, payload);
 
-        try (DatagramSocket sender = new DatagramSocket(clientAddress)) {
-            sender.send(new DatagramPacket(packet, packet.length,
-                    new InetSocketAddress("127.0.0.1", localPort)));
+        try (DatagramSocket sender = new DatagramSocket(realClient)) {
+            sender.send(new DatagramPacket(packet, packet.length, backendAddress));
             lbAddress = sender.getLocalAddress();
         }
 
         // Act
-        byte[] receiveBuf = new byte[2048];
-        DatagramPacket receivePacket = new DatagramPacket(receiveBuf, receiveBuf.length);
+        DatagramPacket receivePacket = new DatagramPacket(buffer, buffer.length);
         socket.receive(receivePacket);
 
         // Assert - no metrics should be called for untrusted sources
@@ -88,18 +90,11 @@ class ProxyDatagramSocketUnTrustedProxyTest {
 
     @Test
     void receive_withUntrustedProxy_doesNotParse() throws Exception {
-        InetSocketAddress clientAddress = new InetSocketAddress("127.0.0.1", 12345);
-
         byte[] packet = "Not a proxy header".getBytes(StandardCharsets.UTF_8);
-
-        try (java.net.DatagramSocket sender = new java.net.DatagramSocket()) {
-            sender.send(new DatagramPacket(packet, packet.length,
-                    new InetSocketAddress("127.0.0.1", localPort)));
-        }
+        Utility.sendPacket(packet, backendAddress);
 
         // Act
-        byte[] receiveBuf = new byte[2048];
-        DatagramPacket receivePacket = new DatagramPacket(receiveBuf, receiveBuf.length);
+        DatagramPacket receivePacket = new DatagramPacket(buffer, buffer.length);
         assertDoesNotThrow(() -> socket.receive(receivePacket), "No ProxyProtocolException should be thrown");
 
         // Packet length should be the same as the original packet length

@@ -38,6 +38,9 @@ class ProxyDatagramSocketTest {
     private InetSocketAddress backendAddress;
     private int localPort;
 
+    private byte[] buffer = new byte[2048];
+    private byte[] proxyHeader;
+
     @BeforeEach
     void setUp() throws Exception {
         mockCache = mock(ProxyAddressCache.class);
@@ -48,6 +51,13 @@ class ProxyDatagramSocketTest {
         socket = new ProxyDatagramSocket(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), mockCache, mockMetrics, null);
         localPort = socket.getLocalPort();
         backendAddress = new InetSocketAddress(InetAddress.getLoopbackAddress(), localPort);
+
+        proxyHeader = new AwsProxyEncoderHelper()
+            .family(ProxyHeader.AddressFamily.AF_INET)
+            .socket(ProxyHeader.TransportProtocol.DGRAM)
+            .source(realClient)
+            .destination(serviceAddress)
+            .build();
     }
 
     @AfterEach
@@ -61,26 +71,11 @@ class ProxyDatagramSocketTest {
     void receive_withValidProxyHeader() throws Exception {
         // Arrange
         byte[] payload = "test-data".getBytes(StandardCharsets.UTF_8);
-
-        var proxyHeader = new AwsProxyEncoderHelper()
-                .family(ProxyHeader.AddressFamily.AF_INET)
-                .socket(ProxyHeader.TransportProtocol.DGRAM)
-                .source(realClient)
-                .destination(serviceAddress)
-                .build();
-
-        byte[] packet = new byte[proxyHeader.length + payload.length];
-        System.arraycopy(proxyHeader, 0, packet, 0, proxyHeader.length);
-        System.arraycopy(payload, 0, packet, proxyHeader.length, payload.length);
-
-        // Create a loopback socket to send from
-        try (java.net.DatagramSocket sender = new java.net.DatagramSocket(serviceAddress)) {
-            sender.send(new DatagramPacket(packet, packet.length, backendAddress));
-        }
+        byte[] packet = Utility.createPacket(proxyHeader, payload);
+        Utility.sendPacket(packet, serviceAddress, backendAddress);
 
         // Act
-        byte[] receiveBuf = new byte[2048];
-        DatagramPacket receivePacket = new DatagramPacket(receiveBuf, receiveBuf.length);
+        DatagramPacket receivePacket = new DatagramPacket(buffer, buffer.length);
         socket.receive(receivePacket);
 
         // Assert - cache should be populated with realClient -> lbAddress mapping
@@ -126,8 +121,7 @@ class ProxyDatagramSocketTest {
             socket.send(sendPacket);
 
             // Verify packet was sent to LB address
-            byte[] receiveBuf = new byte[2048];
-            DatagramPacket receivePacket = new DatagramPacket(receiveBuf, receiveBuf.length);
+            DatagramPacket receivePacket = new DatagramPacket(buffer, buffer.length);
             receiver.receive(receivePacket);
 
             // Assert
@@ -163,8 +157,7 @@ class ProxyDatagramSocketTest {
             socket.send(sendPacket);
 
             // Try to receive - should timeout since packet was dropped
-            byte[] receiveBuf = new byte[2048];
-            DatagramPacket receivePacket = new DatagramPacket(receiveBuf, receiveBuf.length);
+            DatagramPacket receivePacket = new DatagramPacket(buffer, buffer.length);
 
             assertThrows(java.net.SocketTimeoutException.class, () -> {
                 receiver.receive(receivePacket);
@@ -185,27 +178,15 @@ class ProxyDatagramSocketTest {
     void receive_withLocalCommand_doesNotPopulateCache() throws Exception {
         // Arrange - create LOCAL command (not proxied)
         byte[] payload = "local".getBytes(StandardCharsets.UTF_8);
-        byte[] proxyHeader = new AwsProxyEncoderHelper()
+        byte[] localProxyHeader = new AwsProxyEncoderHelper()
                 .command(ProxyHeader.Command.LOCAL)
                 .build();
-
-        LOG.trace("Payload:\n{}", Utility.hexdump(payload, 0, payload.length));
-        LOG.trace("Proxy header:\n{}", Utility.hexdump(proxyHeader, 0, proxyHeader.length));
-
-        byte[] packet = new byte[proxyHeader.length + payload.length];
-        System.arraycopy(proxyHeader, 0, packet, 0, proxyHeader.length);
-        System.arraycopy(payload, 0, packet, proxyHeader.length, payload.length);
-
-        try (java.net.DatagramSocket sender = new java.net.DatagramSocket()) {
-            sender.send(new DatagramPacket(packet, packet.length, backendAddress));
-        }
+        byte[] packet = Utility.createPacket(localProxyHeader, payload);
+        Utility.sendPacket(packet, backendAddress);
 
         // Act
-        byte[] receiveBuf = new byte[2048];
-        DatagramPacket receivePacket = new DatagramPacket(receiveBuf, receiveBuf.length);
+        DatagramPacket receivePacket = new DatagramPacket(buffer, buffer.length);
         socket.receive(receivePacket);
-
-        LOG.trace("Received packet length={}, content:\n{}", receivePacket.getLength(), Utility.hexdump(receivePacket.getData(), receivePacket.getOffset(), receivePacket.getLength()));
 
         // Assert - cache should NOT be populated for LOCAL commands
         verify(mockCache, never()).put(any(), any());
@@ -221,24 +202,18 @@ class ProxyDatagramSocketTest {
     void receive_withTcpProtocol_doesNotPopulateCache() throws Exception {
         // Arrange - create header with TCP (not DGRAM) protocol
         byte[] payload = "tcp".getBytes(StandardCharsets.UTF_8);
-        byte[] proxyHeader = new AwsProxyEncoderHelper()
-                .family(ProxyHeader.AddressFamily.AF_INET)
-                .socket(ProxyHeader.TransportProtocol.STREAM) // TCP, not UDP
-                .source(realClient)
-                .destination(serviceAddress)
-                .build();
+        byte[] tcpProxyHeader = new AwsProxyEncoderHelper()
+            .family(ProxyHeader.AddressFamily.AF_INET)
+            .socket(ProxyHeader.TransportProtocol.STREAM) // TCP, not UDP
+            .source(realClient)
+            .destination(serviceAddress)
+            .build();
 
-        byte[] packet = new byte[proxyHeader.length + payload.length];
-        System.arraycopy(proxyHeader, 0, packet, 0, proxyHeader.length);
-        System.arraycopy(payload, 0, packet, proxyHeader.length, payload.length);
-
-        try (java.net.DatagramSocket sender = new java.net.DatagramSocket()) {
-            sender.send(new DatagramPacket(packet, packet.length, backendAddress));
-        }
+        byte[] packet = Utility.createPacket(tcpProxyHeader, payload);
+        Utility.sendPacket(packet, backendAddress);
 
         // Act
-        byte[] receiveBuf = new byte[2048];
-        DatagramPacket receivePacket = new DatagramPacket(receiveBuf, receiveBuf.length);
+        DatagramPacket receivePacket = new DatagramPacket(buffer, buffer.length);
         socket.receive(receivePacket);
 
         // Assert - cache should NOT be populated for non-DGRAM protocols
@@ -253,26 +228,11 @@ class ProxyDatagramSocketTest {
     void receive_withValidProxyHeader_callsMetricsOnHeaderParsed() throws Exception {
         // Arrange
         byte[] payload = "test".getBytes(StandardCharsets.UTF_8);
-
-        byte[] proxyHeader = new AwsProxyEncoderHelper()
-                .family(ProxyHeader.AddressFamily.AF_INET)
-                .socket(ProxyHeader.TransportProtocol.DGRAM)
-                .source(realClient)
-                .destination(serviceAddress)
-                .build();
-
-        byte[] packet = new byte[proxyHeader.length + payload.length];
-        System.arraycopy(proxyHeader, 0, packet, 0, proxyHeader.length);
-        System.arraycopy(payload, 0, packet, proxyHeader.length, payload.length);
-
-        // Send packet
-        try (java.net.DatagramSocket sender = new java.net.DatagramSocket()) {
-            sender.send(new DatagramPacket(packet, packet.length, backendAddress));
-        }
+        byte[] packet = Utility.createPacket(proxyHeader, payload);
+        Utility.sendPacket(packet, backendAddress);
 
         // Act
-        byte[] receiveBuf = new byte[2048];
-        DatagramPacket receivePacket = new DatagramPacket(receiveBuf, receiveBuf.length);
+        DatagramPacket receivePacket = new DatagramPacket(buffer, buffer.length);
         socket.receive(receivePacket);
 
         // Assert - onHeaderParsed should be called
@@ -289,14 +249,10 @@ class ProxyDatagramSocketTest {
     void receive_withInvalidData_callsMetricsOnParseError() throws Exception {
         // Arrange - send garbage data
         byte[] garbage = "not-a-proxy-header".getBytes(StandardCharsets.UTF_8);
-
-        try (java.net.DatagramSocket sender = new java.net.DatagramSocket()) {
-            sender.send(new DatagramPacket(garbage, garbage.length, backendAddress));
-        }
+        Utility.sendPacket(garbage, backendAddress);
 
         // Act
-        byte[] receiveBuf = new byte[2048];
-        DatagramPacket receivePacket = new DatagramPacket(receiveBuf, receiveBuf.length);
+        DatagramPacket receivePacket = new DatagramPacket(buffer, buffer.length);
         socket.receive(receivePacket);
 
         // Assert - onParseError should be called
