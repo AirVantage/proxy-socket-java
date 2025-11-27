@@ -28,9 +28,18 @@ public final class AwsProxyEncoderHelper {
     private final Header header = new Header();
 
     public AwsProxyEncoderHelper command(ProxyHeader.Command cmd) {
-        this.command = cmd == ProxyHeader.Command.LOCAL
-                ? ProxyProtocolSpec.Command.LOCAL
-                : ProxyProtocolSpec.Command.PROXY;
+        if (cmd == ProxyHeader.Command.LOCAL) {
+            this.command = ProxyProtocolSpec.Command.LOCAL;
+
+            // Spec clearly state that for LOCAL command, we
+            // 1. must discard the protocol block including the family and
+            // 2. \x00 is expected to be used for the protocol field.
+            this.family = ProxyProtocolSpec.AddressFamily.AF_UNSPEC;
+            this.protocol = ProxyProtocolSpec.TransportProtocol.UNSPEC;
+        } else {
+            this.command = ProxyProtocolSpec.Command.PROXY;
+        }
+
         return this;
     }
 
@@ -76,13 +85,7 @@ public final class AwsProxyEncoderHelper {
         header.setAddressFamily(family);
         header.setTransportProtocol(protocol);
 
-        // AWS ProProt validates addresses even for LOCAL command, set dummy values
-        if (command == ProxyProtocolSpec.Command.LOCAL && source == null) {
-            header.setSrcAddress(new byte[]{0, 0, 0, 0});
-            header.setDstAddress(new byte[]{0, 0, 0, 0});
-            header.setSrcPort(0);
-            header.setDstPort(0);
-        } else {
+        if (command != ProxyProtocolSpec.Command.LOCAL) {
             if (source != null) {
                 header.setSrcAddress(source.getAddress().getAddress());
                 header.setSrcPort(source.getPort());

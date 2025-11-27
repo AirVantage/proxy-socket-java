@@ -65,17 +65,11 @@ public final class ProxyProtocolV2Decoder {
             throw new ProxyProtocolParseException("Invalid version");
         }
 
-        Command command;
-        switch (cmd) {
-            case 0x00:
-                // Early return for LOCAL command
-                return new ProxyHeader(Command.LOCAL, AddressFamily.AF_UNSPEC, TransportProtocol.UNSPEC, null, null, null, PROTOCOL_SIGNATURE_FIXED_LENGTH);
-            case 0x01:
-                command = Command.PROXY;
-                break;
-            default:
-                throw new ProxyProtocolParseException("Invalid command");
-        }
+        Command command = switch (cmd) {
+            case 0x00 -> Command.LOCAL;
+            case 0x01 -> Command.PROXY;
+            default -> throw new ProxyProtocolParseException("Invalid command");
+        };
 
         // Byte 14: address family and protocol
         int famProto = data[pos++] & 0xFF;

@@ -25,7 +25,7 @@ import static org.mockito.Mockito.*;
 /**
  * Unit tests for ProxyDatagramSocket with untrusted proxy source.
  */
-class ProxyDatagramSocketMetricsTest {
+class ProxyDatagramSocketUnTrustedProxyTest {
 
     private ProxyDatagramSocket socket;
     private ProxyAddressCache mockCache;

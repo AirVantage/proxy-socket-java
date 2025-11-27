@@ -101,7 +101,7 @@ public class ProxyDatagramSocket extends DatagramSocket {
             }
 
             int headerLen = header.getHeaderLength();
-            LOG.trace("Stripping header: {} bytes, remaining length: {}", headerLen, packet.getLength() - headerLen);
+            LOG.trace("Stripping header: {} bytes, original length: {}", headerLen, packet.getLength());
             packet.setData(packet.getData(), packet.getOffset() + headerLen, packet.getLength() - headerLen);
         } catch (ProxyProtocolParseException e) {
             LOG.warn("Proxy socket parse error; delivering original packet.", e);
