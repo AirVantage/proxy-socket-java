@@ -2,7 +2,7 @@
  * BSD-3-Clause License.
  * Copyright (c) 2025 Semtech
  */
-package net.airvantage.proxysocket.udp;
+package net.airvantage.proxysocket.tools;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -10,16 +10,16 @@ import java.net.UnknownHostException;
 import java.util.function.Predicate;
 
 /**
- * Predicate that tests whether an InetSocketAddress belongs to a given subnet (CIDR).
+ * Predicate compatible class that tests whether an InetSocketAddress belongs to a given subnet (CIDR).
  * Supports both IPv4 and IPv6 CIDR notation.
  *
  * <p>Example usage:
  * <pre>
  * // Single subnet
- * socket.setTrustedProxy(new SubnetPredicate("10.0.0.0/8"));
+ * Predicate<InetSocketAddress> predicate = new SubnetPredicate("10.0.0.0/8");
  *
  * // Multiple subnets
- * socket.setTrustedProxy(
+ * Predicate<InetSocketAddress> predicate =
  *     new SubnetPredicate("10.0.0.0/8")
  *         .or(new SubnetPredicate("192.168.0.0/16"))
  *         .or(new SubnetPredicate("2001:db8::/32"))

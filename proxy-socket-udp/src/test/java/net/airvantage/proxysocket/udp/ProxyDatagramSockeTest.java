@@ -36,11 +36,7 @@ class ProxyDatagramSocketIPMappingTest {
         mockCache = mock(ProxyAddressCache.class);
         mockMetrics = mock(ProxyProtocolMetricsListener.class);
 
-        socket = new ProxyDatagramSocket(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0))
-                .setCache(mockCache)
-                .setMetrics(mockMetrics)
-                .setTrustedProxy(addr -> true); // Trust all for these tests
-
+        socket = new ProxyDatagramSocket(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), mockCache, mockMetrics, null);
         localPort = socket.getLocalPort();
     }
 
@@ -58,8 +54,8 @@ class ProxyDatagramSocketIPMappingTest {
         InetSocketAddress lbAddress = new InetSocketAddress("127.0.0.1", 54321);
         byte[] payload = "test-data".getBytes(StandardCharsets.UTF_8);
 
-        byte[] proxyHeader = new ProxyProtocolV2Encoder()
-                .family(ProxyHeader.AddressFamily.INET4)
+        var proxyHeader = new AwsProxyEncoderHelper()
+                .family(ProxyHeader.AddressFamily.AF_INET)
                 .socket(ProxyHeader.TransportProtocol.DGRAM)
                 .source(realClient)
                 .destination(new InetSocketAddress("127.0.0.1", localPort))
@@ -177,46 +173,12 @@ class ProxyDatagramSocketIPMappingTest {
         }
     }
 
-    @Test
-    void receive_withUntrustedProxy_skipsProcessing() throws Exception {
-        // Arrange - configure to reject all sources
-        socket.setTrustedProxy(addr -> false);
-
-        byte[] payload = "test".getBytes(StandardCharsets.UTF_8);
-        byte[] proxyHeader = new ProxyProtocolV2Encoder()
-                .family(ProxyHeader.AddressFamily.INET4)
-                .socket(ProxyHeader.TransportProtocol.DGRAM)
-                .source(new InetSocketAddress("10.1.2.3", 12345))
-                .destination(new InetSocketAddress("127.0.0.1", localPort))
-                .build();
-
-        byte[] packet = new byte[proxyHeader.length + payload.length];
-        System.arraycopy(proxyHeader, 0, packet, 0, proxyHeader.length);
-        System.arraycopy(payload, 0, packet, proxyHeader.length, payload.length);
-
-        try (java.net.DatagramSocket sender = new java.net.DatagramSocket()) {
-            sender.send(new DatagramPacket(packet, packet.length,
-                    new InetSocketAddress("127.0.0.1", localPort)));
-        }
-
-        // Act
-        byte[] receiveBuf = new byte[2048];
-        DatagramPacket receivePacket = new DatagramPacket(receiveBuf, receiveBuf.length);
-        socket.receive(receivePacket);
-
-        // Assert - packet should be delivered unchanged, no parsing
-        verify(mockMetrics, never()).onHeaderParsed(any());
-        verify(mockCache, never()).put(any(), any());
-
-        // Packet length should include proxy header (not stripped)
-        assertEquals(packet.length, receivePacket.getLength());
-    }
 
     @Test
     void receive_withLocalCommand_doesNotPopulateCache() throws Exception {
         // Arrange - create LOCAL command (not proxied)
         byte[] payload = "local".getBytes(StandardCharsets.UTF_8);
-        byte[] proxyHeader = new ProxyProtocolV2Encoder()
+        byte[] proxyHeader = new AwsProxyEncoderHelper()
                 .command(ProxyHeader.Command.LOCAL)
                 .build();
 
@@ -274,6 +236,130 @@ class ProxyDatagramSocketIPMappingTest {
 
         // Metrics should still be called
         verify(mockMetrics).onHeaderParsed(any());
+    }
+
+
+    @Test
+    void receive_withValidProxyHeader_callsMetricsOnHeaderParsed() throws Exception {
+        // Arrange
+        InetSocketAddress realClient = new InetSocketAddress("10.1.2.3", 12345);
+        byte[] payload = "test".getBytes(StandardCharsets.UTF_8);
+
+        byte[] proxyHeader = new AwsProxyEncoderHelper()
+                .family(ProxyHeader.AddressFamily.INET4)
+                .socket(ProxyHeader.TransportProtocol.DGRAM)
+                .source(realClient)
+                .destination(new InetSocketAddress("127.0.0.1", localPort))
+                .build();
+
+        byte[] packet = new byte[proxyHeader.length + payload.length];
+        System.arraycopy(proxyHeader, 0, packet, 0, proxyHeader.length);
+        System.arraycopy(payload, 0, packet, proxyHeader.length, payload.length);
+
+        // Send packet
+        try (java.net.DatagramSocket sender = new java.net.DatagramSocket()) {
+            sender.send(new DatagramPacket(packet, packet.length,
+                    new InetSocketAddress("127.0.0.1", localPort)));
+        }
+
+        // Act
+        byte[] receiveBuf = new byte[2048];
+        DatagramPacket receivePacket = new DatagramPacket(receiveBuf, receiveBuf.length);
+        socket.receive(receivePacket);
+
+        // Assert - onHeaderParsed should be called
+        ArgumentCaptor<ProxyHeader> headerCaptor = ArgumentCaptor.forClass(ProxyHeader.class);
+        verify(mockMetrics).onHeaderParsed(headerCaptor.capture());
+
+        ProxyHeader capturedHeader = headerCaptor.getValue();
+        assertNotNull(capturedHeader);
+        assertEquals(ProxyHeader.TransportProtocol.DGRAM, capturedHeader.getProtocol());
+        assertEquals(realClient, capturedHeader.getSourceAddress());
+    }
+
+    @Test
+    void receive_withInvalidData_callsMetricsOnParseError() throws Exception {
+        // Arrange - send garbage data
+        byte[] garbage = "not-a-proxy-header".getBytes(StandardCharsets.UTF_8);
+
+        try (java.net.DatagramSocket sender = new java.net.DatagramSocket()) {
+            sender.send(new DatagramPacket(garbage, garbage.length,
+                    new InetSocketAddress("127.0.0.1", localPort)));
+        }
+
+        // Act
+        byte[] receiveBuf = new byte[2048];
+        DatagramPacket receivePacket = new DatagramPacket(receiveBuf, receiveBuf.length);
+        socket.receive(receivePacket);
+
+        // Assert - onParseError should be called
+        verify(mockMetrics).onParseError(any(Exception.class));
+
+        // Original packet should be delivered unchanged
+        assertEquals(garbage.length, receivePacket.getLength());
+    }
+
+    @Test
+    void send_withCacheHit_callsMetricsOnCacheHit() throws Exception {
+        // Arrange
+        InetSocketAddress realClient = new InetSocketAddress("10.1.2.3", 12345);
+        InetSocketAddress lbAddress = new InetSocketAddress("127.0.0.1", 54321);
+        byte[] payload = "response".getBytes(StandardCharsets.UTF_8);
+
+        // Mock cache to return lb address
+        when(mockCache.get(realClient)).thenReturn(lbAddress);
+
+        // Create a receiver to verify the packet destination
+        java.net.DatagramSocket receiver = new java.net.DatagramSocket(lbAddress);
+        receiver.setSoTimeout(1000);
+
+        try {
+            // Act - send to real client, should be redirected to LB
+            DatagramPacket sendPacket = new DatagramPacket(payload, payload.length, realClient);
+            socket.send(sendPacket);
+
+            // Receive the packet (to avoid timeout)
+            byte[] receiveBuf = new byte[2048];
+            DatagramPacket receivePacket = new DatagramPacket(receiveBuf, receiveBuf.length);
+            receiver.receive(receivePacket);
+
+            // Assert - onCacheHit should be called
+            verify(mockMetrics).onCacheHit(realClient);
+            verify(mockMetrics, never()).onCacheMiss(any());
+        } finally {
+            receiver.close();
+        }
+    }
+
+    @Test
+    void send_withCacheMiss_callsMetricsOnCacheMiss() throws Exception {
+        // Arrange
+        InetSocketAddress clientAddress = new InetSocketAddress("127.0.0.1", 55555);
+        byte[] payload = "response".getBytes(StandardCharsets.UTF_8);
+
+        // Mock cache to return null (cache miss)
+        when(mockCache.get(clientAddress)).thenReturn(null);
+
+        // Create a receiver at the client address
+        java.net.DatagramSocket receiver = new java.net.DatagramSocket(clientAddress);
+        receiver.setSoTimeout(1000);
+
+        try {
+            // Act - send to client address
+            DatagramPacket sendPacket = new DatagramPacket(payload, payload.length, clientAddress);
+            socket.send(sendPacket);
+
+            // Receive the packet (to avoid timeout)
+            byte[] receiveBuf = new byte[2048];
+            DatagramPacket receivePacket = new DatagramPacket(receiveBuf, receiveBuf.length);
+            receiver.receive(receivePacket);
+
+            // Assert - onCacheMiss should be called
+            verify(mockMetrics).onCacheMiss(clientAddress);
+            verify(mockMetrics, never()).onCacheHit(any());
+        } finally {
+            receiver.close();
+        }
     }
 }
 

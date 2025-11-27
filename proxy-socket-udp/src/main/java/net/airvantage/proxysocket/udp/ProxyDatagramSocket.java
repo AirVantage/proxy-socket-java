@@ -6,6 +6,7 @@ package net.airvantage.proxysocket.udp;
 
 import net.airvantage.proxysocket.core.ProxyAddressCache;
 import net.airvantage.proxysocket.core.ProxyProtocolMetricsListener;
+import net.airvantage.proxysocket.core.ProxyProtocolParseException;
 import net.airvantage.proxysocket.core.v2.ProxyHeader;
 import net.airvantage.proxysocket.core.v2.ProxyProtocolV2Decoder;
 
@@ -13,8 +14,11 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetSocketAddress;
+import java.net.PortUnreachableException;
 import java.net.SocketAddress;
 import java.net.SocketException;
+import java.net.SocketTimeoutException;
+import java.nio.channels.IllegalBlockingModeException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.function.Predicate;
@@ -30,29 +34,37 @@ import java.util.function.Predicate;
 public class ProxyDatagramSocket extends DatagramSocket {
     private static final Logger LOG = Logger.getLogger(ProxyDatagramSocket.class.getName());
 
-    private ProxyAddressCache addressCache;
-    private ProxyProtocolMetricsListener metrics;
-    private Predicate<InetSocketAddress> trustedProxyPredicate;
+    private final ProxyAddressCache addressCache;
+    private final ProxyProtocolMetricsListener metrics;
+    private final Predicate<InetSocketAddress> trustedProxyPredicate;
 
-    public ProxyDatagramSocket() throws SocketException {
+    public ProxyDatagramSocket(ProxyAddressCache cache, ProxyProtocolMetricsListener metrics, Predicate<InetSocketAddress> predicate) throws SocketException {
         super();
+        this.addressCache = cache;
+        this.metrics = metrics;
+        this.trustedProxyPredicate = predicate;
     }
 
-    public ProxyDatagramSocket(SocketAddress bindaddr) throws SocketException {
+    public ProxyDatagramSocket(SocketAddress bindaddr, ProxyAddressCache cache, ProxyProtocolMetricsListener metrics, Predicate<InetSocketAddress> predicate) throws SocketException {
         super(bindaddr);
+        this.addressCache = cache;
+        this.metrics = metrics;
+        this.trustedProxyPredicate = predicate;
     }
 
-    public ProxyDatagramSocket(int port) throws SocketException {
+    public ProxyDatagramSocket(int port, ProxyAddressCache cache, ProxyProtocolMetricsListener metrics, Predicate<InetSocketAddress> predicate) throws SocketException {
         super(port);
+        this.addressCache = cache;
+        this.metrics = metrics;
+        this.trustedProxyPredicate = predicate;
     }
 
-    public ProxyDatagramSocket(int port, java.net.InetAddress laddr) throws SocketException {
+    public ProxyDatagramSocket(int port, java.net.InetAddress laddr, ProxyAddressCache cache, ProxyProtocolMetricsListener metrics, Predicate<InetSocketAddress> predicate) throws SocketException {
         super(port, laddr);
+        this.addressCache = cache;
+        this.metrics = metrics;
+        this.trustedProxyPredicate = predicate;
     }
-
-    public ProxyDatagramSocket setCache(ProxyAddressCache cache) { this.addressCache = cache; return this; }
-    public ProxyDatagramSocket setMetrics(ProxyProtocolMetricsListener metrics) { this.metrics = metrics; return this; }
-    public ProxyDatagramSocket setTrustedProxy(Predicate<InetSocketAddress> predicate) { this.trustedProxyPredicate = predicate; return this; }
 
     @Override
     public void receive(DatagramPacket packet)
@@ -102,12 +114,14 @@ public class ProxyDatagramSocket extends DatagramSocket {
         if (lb != null) {
             packet.setSocketAddress(lb);
             if (metrics != null) metrics.onCacheHit(client);
-        } else {
+        } else if (addressCache != null) {
+            // Cache miss: unable to map client to load balancer address,
+            LOG.log(Level.DEBUG, "Cache miss for client {0}; unable to map to load balancer address, dropping packet.", client);
             if (metrics != null) metrics.onCacheMiss(client);
+            return;
+        // } else {
+            // No cache: deliver original packet
         }
-
         super.send(packet);
     }
 }
-
-

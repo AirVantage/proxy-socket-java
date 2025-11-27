@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
+import java.util.function.Predicate;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -189,7 +190,7 @@ class SubnetPredicateTest {
     void testPredicateComposition_Or() throws UnknownHostException {
         SubnetPredicate predicate1 = new SubnetPredicate("192.168.1.0/24");
         SubnetPredicate predicate2 = new SubnetPredicate("10.0.0.0/8");
-        SubnetPredicate combined = predicate1.or(predicate2);
+        Predicate<InetSocketAddress> combined = predicate1.or(predicate2);
 
         assertTrue(combined.test(addr("192.168.1.100", 8080)));
         assertTrue(combined.test(addr("10.20.30.40", 8080)));
@@ -200,7 +201,7 @@ class SubnetPredicateTest {
     void testPredicateComposition_And() throws UnknownHostException {
         SubnetPredicate predicate1 = new SubnetPredicate("192.168.0.0/16");
         SubnetPredicate predicate2 = new SubnetPredicate("192.168.1.0/24");
-        SubnetPredicate combined = predicate1.and(predicate2);
+        Predicate<InetSocketAddress> combined = predicate1.and(predicate2);
 
         assertTrue(combined.test(addr("192.168.1.100", 8080)));
         assertFalse(combined.test(addr("192.168.2.100", 8080)));
