@@ -5,6 +5,8 @@
 package net.airvantage.proxysocket.core;
 
 import net.airvantage.proxysocket.core.v2.ProxyHeader;
+
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 
 /**
@@ -16,7 +18,7 @@ public interface ProxyProtocolMetricsListener {
     default void onParseError(Exception e) {}
     default void onCacheHit(InetSocketAddress client) {}
     default void onCacheMiss(InetSocketAddress client) {}
-    default void onUntrustedProxy(InetSocketAddress proxy) {}
-    default void onTrustedProxy(InetSocketAddress proxy) {}
-    default void onLocal(InetSocketAddress proxy) {}
+    default void onUntrustedProxy(InetAddress proxy) {}
+    default void onTrustedProxy(InetAddress proxy) {}
+    default void onLocal(InetAddress proxy) {}
 }

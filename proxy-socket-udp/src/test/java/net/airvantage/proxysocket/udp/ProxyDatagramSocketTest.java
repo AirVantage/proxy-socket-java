@@ -7,7 +7,7 @@ package net.airvantage.proxysocket.udp;
 import net.airvantage.proxysocket.core.ProxyAddressCache;
 import net.airvantage.proxysocket.core.ProxyProtocolMetricsListener;
 import net.airvantage.proxysocket.core.v2.ProxyHeader;
-import net.airvantage.proxysocket.core.v2.ProxyProtocolV2Encoder;
+import net.airvantage.proxysocket.core.v2.AwsProxyEncoderHelper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -94,6 +94,12 @@ class ProxyDatagramSocketIPMappingTest {
                 java.util.Arrays.copyOfRange(receivePacket.getData(),
                         receivePacket.getOffset(),
                         receivePacket.getOffset() + receivePacket.getLength()));
+
+        verify(mockMetrics).onHeaderParsed(any(ProxyHeader.class));
+        verify(mockMetrics).onTrustedProxy(lbAddress.getAddress());
+        verify(mockMetrics, never()).onUntrustedProxy(any());
+        verify(mockMetrics, never()).onParseError(any());
+        verify(mockMetrics, never()).onLocal(any());
     }
 
     @Test
@@ -173,7 +179,6 @@ class ProxyDatagramSocketIPMappingTest {
         }
     }
 
-
     @Test
     void receive_withLocalCommand_doesNotPopulateCache() throws Exception {
         // Arrange - create LOCAL command (not proxied)
@@ -210,8 +215,8 @@ class ProxyDatagramSocketIPMappingTest {
     void receive_withTcpProtocol_doesNotPopulateCache() throws Exception {
         // Arrange - create header with TCP (not DGRAM) protocol
         byte[] payload = "tcp".getBytes(StandardCharsets.UTF_8);
-        byte[] proxyHeader = new ProxyProtocolV2Encoder()
-                .family(ProxyHeader.AddressFamily.INET4)
+        byte[] proxyHeader = new AwsProxyEncoderHelper()
+                .family(ProxyHeader.AddressFamily.AF_INET)
                 .socket(ProxyHeader.TransportProtocol.STREAM) // TCP, not UDP
                 .source(new InetSocketAddress("10.1.2.3", 12345))
                 .destination(new InetSocketAddress("127.0.0.1", localPort))
@@ -246,7 +251,7 @@ class ProxyDatagramSocketIPMappingTest {
         byte[] payload = "test".getBytes(StandardCharsets.UTF_8);
 
         byte[] proxyHeader = new AwsProxyEncoderHelper()
-                .family(ProxyHeader.AddressFamily.INET4)
+                .family(ProxyHeader.AddressFamily.AF_INET)
                 .socket(ProxyHeader.TransportProtocol.DGRAM)
                 .source(realClient)
                 .destination(new InetSocketAddress("127.0.0.1", localPort))

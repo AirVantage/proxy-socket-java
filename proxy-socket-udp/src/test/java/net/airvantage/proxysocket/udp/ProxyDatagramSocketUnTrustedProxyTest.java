@@ -7,13 +7,14 @@ package net.airvantage.proxysocket.udp;
 import net.airvantage.proxysocket.core.ProxyAddressCache;
 import net.airvantage.proxysocket.core.ProxyProtocolMetricsListener;
 import net.airvantage.proxysocket.core.v2.ProxyHeader;
-import net.airvantage.proxysocket.core.v2.ProxyProtocolV2Encoder;
+import net.airvantage.proxysocket.core.v2.AwsProxyEncoderHelper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import java.net.DatagramPacket;
+import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
@@ -50,6 +51,7 @@ class ProxyDatagramSocketMetricsTest {
     @Test
     void receive_withUntrustedProxy_doesNotStripHeader() throws Exception {
         InetSocketAddress clientAddress = new InetSocketAddress("127.0.0.1", 12345);
+        InetAddress lbAddress;
 
         byte[] payload = "test".getBytes(StandardCharsets.UTF_8);
         byte[] proxyHeader = new AwsProxyEncoderHelper()
@@ -63,9 +65,10 @@ class ProxyDatagramSocketMetricsTest {
         System.arraycopy(proxyHeader, 0, packet, 0, proxyHeader.length);
         System.arraycopy(payload, 0, packet, proxyHeader.length, payload.length);
 
-        try (java.net.DatagramSocket sender = new java.net.DatagramSocket()) {
+        try (DatagramSocket sender = new DatagramSocket(clientAddress)) {
             sender.send(new DatagramPacket(packet, packet.length,
                     new InetSocketAddress("127.0.0.1", localPort)));
+            lbAddress = sender.getLocalAddress();
         }
 
         // Act
@@ -77,7 +80,7 @@ class ProxyDatagramSocketMetricsTest {
         verify(mockMetrics, never()).onHeaderParsed(any());
         verify(mockMetrics, never()).onParseError(any());
         verify(mockMetrics, never()).onTrustedProxy(any());
-        verify(mockMetrics).onUntrustedProxy(clientAddress);
+        verify(mockMetrics).onUntrustedProxy(lbAddress);
 
         // Packet length should include proxy header (not stripped)
         assertEquals(packet.length, receivePacket.getLength());

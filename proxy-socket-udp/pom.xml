@@ -19,6 +19,13 @@
             <version>${project.version}</version>
         </dependency>
         <dependency>
+            <groupId>net.airvantage</groupId>
+            <artifactId>proxy-socket-core</artifactId>
+            <version>${project.version}</version>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
             <version>2.0.17</version>
@@ -37,6 +44,20 @@
             <version>2.0.17</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <version>5.2.0</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- AWS ProProt library needed by AwsProxyEncoderHelper from test-jar -->
+        <dependency>
+            <groupId>com.amazonaws.proprot</groupId>
+            <artifactId>proprot</artifactId>
+            <version>1.0</version>
+            <scope>test</scope>
+        </dependency>
+
     </dependencies>
 
 </project>

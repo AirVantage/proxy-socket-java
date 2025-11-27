@@ -10,17 +10,19 @@ import net.airvantage.proxysocket.core.ProxyProtocolParseException;
 import net.airvantage.proxysocket.core.v2.ProxyHeader;
 import net.airvantage.proxysocket.core.v2.ProxyProtocolV2Decoder;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.PortUnreachableException;
 import java.net.SocketAddress;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.nio.channels.IllegalBlockingModeException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.function.Predicate;
 
 /**
@@ -32,7 +34,7 @@ import java.util.function.Predicate;
  * not mutate shared state beyond those collaborators.
  */
 public class ProxyDatagramSocket extends DatagramSocket {
-    private static final Logger LOG = Logger.getLogger(ProxyDatagramSocket.class.getName());
+    private static final Logger LOG = LoggerFactory.getLogger(ProxyDatagramSocket.class);
 
     private final ProxyAddressCache addressCache;
     private final ProxyProtocolMetricsListener metrics;
@@ -76,8 +78,8 @@ public class ProxyDatagramSocket extends DatagramSocket {
             InetSocketAddress lbAddress = (InetSocketAddress) packet.getSocketAddress();
             if (trustedProxyPredicate != null && !trustedProxyPredicate.test(lbAddress)) {
                 // Untrusted source: do not parse, deliver original packet
-                LOG.log(Level.DEBUG, "Untrusted proxy source; delivering original packet.");
-                if (metrics != null) metrics.onUntrustedProxy(lbAddress);
+                LOG.debug("Untrusted proxy source; delivering original packet.");
+                if (metrics != null) metrics.onUntrustedProxy(lbAddress.getAddress());
                 return;
             }
 
@@ -86,10 +88,10 @@ public class ProxyDatagramSocket extends DatagramSocket {
 
             if (header.isLocal()) {
                 // LOCAL: not proxied
-                if (metrics != null) metrics.onLocal(lbAddress);
+                if (metrics != null) metrics.onLocal(lbAddress.getAddress());
             }
             if (header.isProxy() && header.getProtocol() == ProxyHeader.TransportProtocol.DGRAM) {
-                if (metrics != null) metrics.onTrustedProxy(lbAddress);
+                if (metrics != null) metrics.onTrustedProxy(lbAddress.getAddress());
 
                 InetSocketAddress realClient = header.getSourceAddress();
                 if (realClient != null) { // could be null if address family is unspecified or unix
@@ -99,9 +101,10 @@ public class ProxyDatagramSocket extends DatagramSocket {
             }
 
             int headerLen = header.getHeaderLength();
+            LOG.trace("Stripping header: {} bytes, remaining length: {}", headerLen, packet.getLength() - headerLen);
             packet.setData(packet.getData(), packet.getOffset() + headerLen, packet.getLength() - headerLen);
         } catch (ProxyProtocolParseException e) {
-            LOG.log(Level.WARNING, "Proxy socket parse error; delivering original packet.", e);
+            LOG.warn("Proxy socket parse error; delivering original packet.", e);
             if (metrics != null) metrics.onParseError(e);
         }
     }
@@ -116,7 +119,7 @@ public class ProxyDatagramSocket extends DatagramSocket {
             if (metrics != null) metrics.onCacheHit(client);
         } else if (addressCache != null) {
             // Cache miss: unable to map client to load balancer address,
-            LOG.log(Level.DEBUG, "Cache miss for client {0}; unable to map to load balancer address, dropping packet.", client);
+            LOG.debug("Cache miss for client {}; unable to map to load balancer address, dropping packet.", client);
             if (metrics != null) metrics.onCacheMiss(client);
             return;
         // } else {
