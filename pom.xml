@@ -6,7 +6,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>net.airvantage</groupId>
-    <artifactId>proxysocket-java</artifactId>
+    <artifactId>proxy-socket-java</artifactId>
     <version>1.0.0-SNAPSHOT</version>
     <packaging>pom</packaging>
 
@@ -16,11 +16,13 @@
 
         <!-- Dependency versions -->
         <junit.version>5.10.3</junit.version>
+        <guava.version>33.5.0-jre</guava.version>
 
     </properties>
 
     <modules>
         <module>proxy-socket-core</module>
+        <module>proxy-socket-guava</module>
     </modules>
 
     <build>
