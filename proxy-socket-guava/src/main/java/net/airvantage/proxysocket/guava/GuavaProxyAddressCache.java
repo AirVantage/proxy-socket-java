@@ -41,6 +41,3 @@ public final class GuavaProxyAddressCache implements ProxyAddressCache {
         cache.invalidateAll();
     }
 }
-
-
-
