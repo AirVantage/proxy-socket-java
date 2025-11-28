@@ -2,7 +2,7 @@
  * MIT License
  * Copyright (c) 2025 Semtech
  */
-package net.airvantage.proxysocket.core.cache;
+package net.airvantage.proxysocket.tools.cache;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
