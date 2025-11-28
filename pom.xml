@@ -16,7 +16,7 @@
 
         <!-- Dependency versions -->
         <junit.version>5.10.3</junit.version>
-        <guava.version>33.0.0-jre</guava.version>
+        <guava.version>33.5.0-jre</guava.version>
 
     </properties>
 
