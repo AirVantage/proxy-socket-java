@@ -16,16 +16,14 @@
 
         <!-- Dependency versions -->
         <junit.version>5.10.3</junit.version>
-        <guava.version>33.3.1-jre</guava.version>
+        <guava.version>33.5.0-jre</guava.version>
 
     </properties>
 
     <modules>
         <module>proxy-socket-core</module>
         <module>proxy-socket-udp</module>
-        <!-- <module>proxy-socket-tcp</module>
         <module>proxy-socket-guava</module>
-        <module>proxy-socket-examples</module> -->
     </modules>
 
     <build>
