@@ -10,7 +10,7 @@
     <version>1.0.0-SNAPSHOT</version>
     <packaging>pom</packaging>
 
-    <description>ProxySocket Java implementation.</description>
+    <description>ProxyProtocol Java implementation.</description>
 
     <properties>
 
