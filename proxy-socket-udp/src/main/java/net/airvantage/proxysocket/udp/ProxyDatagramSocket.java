@@ -119,7 +119,7 @@ public class ProxyDatagramSocket extends DatagramSocket {
             if (metrics != null) metrics.onCacheHit(client);
         } else if (addressCache != null) {
             // Cache miss: unable to map client to load balancer address,
-            LOG.debug("Cache miss for client {}; unable to map to load balancer address, dropping packet.", client);
+            LOG.warn("Cache miss for client {}; unable to map to load balancer address, dropping packet.", client);
             if (metrics != null) metrics.onCacheMiss(client);
             return;
         // } else {
