@@ -5,155 +5,115 @@
 package net.airvantage.proxysocket.tools;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class SubnetPredicateTest {
 
-    // ========== IPv4 Tests ==========
+    // ========== Parameterized Tests for Matching Addresses ==========
 
-    @Test
-    void testIPv4_SingleHost_32BitMask() throws UnknownHostException {
-        SubnetPredicate predicate = new SubnetPredicate("192.168.1.100/32");
-
-        assertTrue(predicate.test(addr("192.168.1.100", 8080)));
-        assertFalse(predicate.test(addr("192.168.1.101", 8080)));
-        assertFalse(predicate.test(addr("192.168.1.99", 8080)));
+    @ParameterizedTest(name = "{0} should match {1}")
+    @CsvSource({
+        // IPv4 - Single Host /32
+        "192.168.1.100/32, 192.168.1.100",
+        // IPv4 - Class C /24
+        "192.168.1.0/24, 192.168.1.0",
+        "192.168.1.0/24, 192.168.1.1",
+        "192.168.1.0/24, 192.168.1.100",
+        "192.168.1.0/24, 192.168.1.255",
+        // IPv4 - Class B /16
+        "172.16.0.0/16, 172.16.0.0",
+        "172.16.0.0/16, 172.16.1.1",
+        "172.16.0.0/16, 172.16.255.255",
+        // IPv4 - Class A /8
+        "10.0.0.0/8, 10.0.0.0",
+        "10.0.0.0/8, 10.0.0.1",
+        "10.0.0.0/8, 10.255.255.255",
+        "10.0.0.0/8, 10.123.45.67",
+        // IPv4 - /25
+        "192.168.1.0/25, 192.168.1.0",
+        "192.168.1.0/25, 192.168.1.127",
+        // IPv4 - /23
+        "192.168.0.0/23, 192.168.0.0",
+        "192.168.0.0/23, 192.168.0.255",
+        "192.168.0.0/23, 192.168.1.0",
+        "192.168.0.0/23, 192.168.1.255",
+        // IPv4 - /0 (matches all IPv4)
+        "0.0.0.0/0, 0.0.0.0",
+        "0.0.0.0/0, 1.2.3.4",
+        "0.0.0.0/0, 192.168.1.1",
+        "0.0.0.0/0, 255.255.255.255",
+        // IPv6 - Single Host /128
+        "2001:db8::1/128, 2001:db8::1",
+        // IPv6 - /64
+        "2001:db8::/64, 2001:db8::1",
+        "2001:db8::/64, 2001:db8::ffff:ffff:ffff:ffff",
+        "2001:db8::/64, 2001:db8:0:0:1234:5678:9abc:def0",
+        // IPv6 - /32
+        "2001:db8::/32, 2001:db8::",
+        "2001:db8::/32, 2001:db8:ffff:ffff:ffff:ffff:ffff:ffff",
+        // IPv6 - Loopback
+        "::1/128, ::1",
+        // IPv6 - /0 (matches all IPv6)
+        "::/0, ::",
+        "::/0, ::1",
+        "::/0, 2001:db8::1",
+        "::/0, ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"
+    })
+    void testAddressShouldMatch(String cidr, String address) throws UnknownHostException {
+        SubnetPredicate predicate = new SubnetPredicate(cidr);
+        assertTrue(predicate.test(addr(address, 8080)),
+            address + " should match " + cidr);
     }
 
-    @Test
-    void testIPv4_ClassC_24BitMask() throws UnknownHostException {
-        SubnetPredicate predicate = new SubnetPredicate("192.168.1.0/24");
-
-        assertTrue(predicate.test(addr("192.168.1.0", 8080)));
-        assertTrue(predicate.test(addr("192.168.1.1", 8080)));
-        assertTrue(predicate.test(addr("192.168.1.100", 8080)));
-        assertTrue(predicate.test(addr("192.168.1.255", 8080)));
-
-        assertFalse(predicate.test(addr("192.168.0.255", 8080)));
-        assertFalse(predicate.test(addr("192.168.2.0", 8080)));
-        assertFalse(predicate.test(addr("192.167.1.1", 8080)));
-    }
-
-    @Test
-    void testIPv4_ClassB_16BitMask() throws UnknownHostException {
-        SubnetPredicate predicate = new SubnetPredicate("172.16.0.0/16");
-
-        assertTrue(predicate.test(addr("172.16.0.0", 8080)));
-        assertTrue(predicate.test(addr("172.16.1.1", 8080)));
-        assertTrue(predicate.test(addr("172.16.255.255", 8080)));
-
-        assertFalse(predicate.test(addr("172.15.255.255", 8080)));
-        assertFalse(predicate.test(addr("172.17.0.0", 8080)));
-    }
-
-    @Test
-    void testIPv4_ClassA_8BitMask() throws UnknownHostException {
-        SubnetPredicate predicate = new SubnetPredicate("10.0.0.0/8");
-
-        assertTrue(predicate.test(addr("10.0.0.0", 8080)));
-        assertTrue(predicate.test(addr("10.0.0.1", 8080)));
-        assertTrue(predicate.test(addr("10.255.255.255", 8080)));
-        assertTrue(predicate.test(addr("10.123.45.67", 8080)));
-
-        assertFalse(predicate.test(addr("9.255.255.255", 8080)));
-        assertFalse(predicate.test(addr("11.0.0.0", 8080)));
-    }
-
-    @Test
-    void testIPv4_NonStandardMask_25Bits() throws UnknownHostException {
-        SubnetPredicate predicate = new SubnetPredicate("192.168.1.0/25");
-
-        // First half: 192.168.1.0 - 192.168.1.127
-        assertTrue(predicate.test(addr("192.168.1.0", 8080)));
-        assertTrue(predicate.test(addr("192.168.1.127", 8080)));
-
-        // Second half: 192.168.1.128 - 192.168.1.255
-        assertFalse(predicate.test(addr("192.168.1.128", 8080)));
-        assertFalse(predicate.test(addr("192.168.1.255", 8080)));
-    }
-
-    @Test
-    void testIPv4_NonStandardMask_23Bits() throws UnknownHostException {
-        SubnetPredicate predicate = new SubnetPredicate("192.168.0.0/23");
-
-        assertTrue(predicate.test(addr("192.168.0.0", 8080)));
-        assertTrue(predicate.test(addr("192.168.0.255", 8080)));
-        assertTrue(predicate.test(addr("192.168.1.0", 8080)));
-        assertTrue(predicate.test(addr("192.168.1.255", 8080)));
-
-        assertFalse(predicate.test(addr("192.168.2.0", 8080)));
-        assertFalse(predicate.test(addr("192.167.255.255", 8080)));
-    }
-
-    @Test
-    void testIPv4_ZeroMask_MatchesAll() throws UnknownHostException {
-        SubnetPredicate predicate = new SubnetPredicate("0.0.0.0/0");
-
-        assertTrue(predicate.test(addr("0.0.0.0", 8080)));
-        assertTrue(predicate.test(addr("1.2.3.4", 8080)));
-        assertTrue(predicate.test(addr("192.168.1.1", 8080)));
-        assertTrue(predicate.test(addr("255.255.255.255", 8080)));
-
-        // But not IPv6
-        assertFalse(predicate.test(addr("::1", 8080)));
-    }
-
-    // ========== IPv6 Tests ==========
-
-    @Test
-    void testIPv6_SingleHost_128BitMask() throws UnknownHostException {
-        SubnetPredicate predicate = new SubnetPredicate("2001:db8::1/128");
-
-        assertTrue(predicate.test(addr("2001:db8::1", 8080)));
-        assertFalse(predicate.test(addr("2001:db8::2", 8080)));
-    }
-
-    @Test
-    void testIPv6_CommonSubnet_64BitMask() throws UnknownHostException {
-        SubnetPredicate predicate = new SubnetPredicate("2001:db8::/64");
-
-        assertTrue(predicate.test(addr("2001:db8::1", 8080)));
-        assertTrue(predicate.test(addr("2001:db8::ffff:ffff:ffff:ffff", 8080)));
-        assertTrue(predicate.test(addr("2001:db8:0:0:1234:5678:9abc:def0", 8080)));
-
-        assertFalse(predicate.test(addr("2001:db8:0:1::1", 8080)));
-    }
-
-    @Test
-    void testIPv6_WideSubnet_32BitMask() throws UnknownHostException {
-        SubnetPredicate predicate = new SubnetPredicate("2001:db8::/32");
-
-        assertTrue(predicate.test(addr("2001:db8::", 8080)));
-        assertTrue(predicate.test(addr("2001:db8:ffff:ffff:ffff:ffff:ffff:ffff", 8080)));
-
-        assertFalse(predicate.test(addr("2001:db9::", 8080)));
-        assertFalse(predicate.test(addr("2001:db7:ffff:ffff:ffff:ffff:ffff:ffff", 8080)));
-    }
-
-    @Test
-    void testIPv6_Loopback() throws UnknownHostException {
-        SubnetPredicate predicate = new SubnetPredicate("::1/128");
-
-        assertTrue(predicate.test(addr("::1", 8080)));
-        assertFalse(predicate.test(addr("::2", 8080)));
-    }
-
-    @Test
-    void testIPv6_ZeroMask_MatchesAll() throws UnknownHostException {
-        SubnetPredicate predicate = new SubnetPredicate("::/0");
-
-        assertTrue(predicate.test(addr("::", 8080)));
-        assertTrue(predicate.test(addr("::1", 8080)));
-        assertTrue(predicate.test(addr("2001:db8::1", 8080)));
-        assertTrue(predicate.test(addr("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", 8080)));
-
-        // But not IPv4
-        assertFalse(predicate.test(addr("192.168.1.1", 8080)));
+    @ParameterizedTest(name = "{0} should NOT match {1}")
+    @CsvSource({
+        // IPv4 - Single Host /32
+        "192.168.1.100/32, 192.168.1.101",
+        "192.168.1.100/32, 192.168.1.99",
+        // IPv4 - Class C /24
+        "192.168.1.0/24, 192.168.0.255",
+        "192.168.1.0/24, 192.168.2.0",
+        "192.168.1.0/24, 192.167.1.1",
+        // IPv4 - Class B /16
+        "172.16.0.0/16, 172.15.255.255",
+        "172.16.0.0/16, 172.17.0.0",
+        // IPv4 - Class A /8
+        "10.0.0.0/8, 9.255.255.255",
+        "10.0.0.0/8, 11.0.0.0",
+        // IPv4 - /25
+        "192.168.1.0/25, 192.168.1.128",
+        "192.168.1.0/25, 192.168.1.255",
+        // IPv4 - /23
+        "192.168.0.0/23, 192.168.2.0",
+        "192.168.0.0/23, 192.167.255.255",
+        // IPv4 - /0 (doesn't match IPv6)
+        "0.0.0.0/0, ::1",
+        // IPv6 - Single Host /128
+        "2001:db8::1/128, 2001:db8::2",
+        // IPv6 - /64
+        "2001:db8::/64, 2001:db8:0:1::1",
+        // IPv6 - /32
+        "2001:db8::/32, 2001:db9::",
+        "2001:db8::/32, 2001:db7:ffff:ffff:ffff:ffff:ffff:ffff",
+        // IPv6 - Loopback
+        "::1/128, ::2",
+        // IPv6 - /0 (doesn't match IPv4)
+        "::/0, 192.168.1.1"
+    })
+    void testAddressShouldNotMatch(String cidr, String address) throws UnknownHostException {
+        SubnetPredicate predicate = new SubnetPredicate(cidr);
+        assertFalse(predicate.test(addr(address, 8080)),
+            address + " should NOT match " + cidr);
     }
 
     // ========== Edge Cases ==========
@@ -238,39 +198,18 @@ class SubnetPredicateTest {
         assertThrows(IllegalArgumentException.class, () -> new SubnetPredicate(null));
     }
 
-    @Test
-    void testInvalidCIDR_EmptyString() {
-        assertThrows(IllegalArgumentException.class, () -> new SubnetPredicate(""));
-    }
-
-    @Test
-    void testInvalidCIDR_MissingSlash() {
-        assertThrows(IllegalArgumentException.class, () -> new SubnetPredicate("192.168.1.0"));
-    }
-
-    @Test
-    void testInvalidCIDR_InvalidPrefix() {
-        assertThrows(IllegalArgumentException.class, () -> new SubnetPredicate("192.168.1.0/abc"));
-    }
-
-    @Test
-    void testInvalidCIDR_PrefixTooLarge_IPv4() {
-        assertThrows(IllegalArgumentException.class, () -> new SubnetPredicate("192.168.1.0/33"));
-    }
-
-    @Test
-    void testInvalidCIDR_PrefixTooLarge_IPv6() {
-        assertThrows(IllegalArgumentException.class, () -> new SubnetPredicate("2001:db8::/129"));
-    }
-
-    @Test
-    void testInvalidCIDR_NegativePrefix() {
-        assertThrows(IllegalArgumentException.class, () -> new SubnetPredicate("192.168.1.0/-1"));
-    }
-
-    @Test
-    void testInvalidCIDR_InvalidIPAddress() {
-        assertThrows(IllegalArgumentException.class, () -> new SubnetPredicate("256.256.256.256/24"));
+    @ParameterizedTest(name = "Invalid CIDR: ''{0}''")
+    @ValueSource(strings = {
+        "",
+        "192.168.1.0",              // Missing slash
+        "192.168.1.0/abc",          // Invalid prefix
+        "192.168.1.0/33",           // Prefix too large for IPv4
+        "2001:db8::/129",           // Prefix too large for IPv6
+        "192.168.1.0/-1",           // Negative prefix
+        "256.256.256.256/24"        // Invalid IP address
+    })
+    void testInvalidCIDR(String cidr) {
+        assertThrows(IllegalArgumentException.class, () -> new SubnetPredicate(cidr));
     }
 
     @Test
