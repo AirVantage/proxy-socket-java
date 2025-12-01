@@ -87,12 +87,12 @@ public class SubnetPredicate implements Predicate<InetSocketAddress> {
     @Override
     public boolean test(InetSocketAddress socketAddress) {
         if (socketAddress == null) {
-            throw new IllegalArgumentException("Socket address cannot be null");
+            return false;
         }
 
         InetAddress address = socketAddress.getAddress();
         if (address == null) {
-            throw new IllegalArgumentException("Address cannot be null");
+            return false;
         }
 
         byte[] testAddress = address.getAddress();
