@@ -50,12 +50,12 @@ public class SubnetPredicate implements Predicate<InetSocketAddress> {
         }
 
         String addressPart = cidr.substring(0, slashIndex);
-        String prefixPart = cidr.substring(slashIndex + 1);
+        String prefixLengthPart = cidr.substring(slashIndex + 1);
 
         try {
-            this.prefixLength = Integer.parseInt(prefixPart);
+            this.prefixLength = Integer.parseInt(prefixLengthPart);
         } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("Invalid prefix length: " + prefixPart, e);
+            throw new IllegalArgumentException("Invalid prefix length: " + prefixLengthPart, e);
         }
 
         try {
@@ -118,14 +118,13 @@ public class SubnetPredicate implements Predicate<InetSocketAddress> {
      * Applies a subnet mask to an IP address.
      *
      * @param address the raw IP address bytes
-     * @param prefixLen the prefix length (number of network bits)
      * @return the masked address bytes
      */
-    private static byte[] applyMask(byte[] address, int prefixLen) {
+    private byte[] applyMask(byte[] address) {
         byte[] result = new byte[address.length];
 
-        int fullBytes = prefixLen / 8;
-        int remainingBits = prefixLen % 8;
+        int fullBytes = prefixLength / 8;
+        int remainingBits = prefixLength % 8;
 
         // Copy the full bytes
         System.arraycopy(address, 0, result, 0, fullBytes);
