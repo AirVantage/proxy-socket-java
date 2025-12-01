@@ -26,6 +26,12 @@ import java.util.function.Predicate;
  * );
  * </pre>
  *
+ * Note: it's possible to create a SubnetPredicate with a hostname instead of an IP address,
+ * the address will be resolved to an IP address using InetAddress.getByName(hostname).
+ * If the hostname is not resolvable, an IllegalArgumentException will be thrown.
+ * But if the hostname resolves to a mix of IPv4/IPv6 addresses or multiple addresses,
+ * the predicate will only match the first address found.
+ *
  * Thread-safety: This class is immutable and thread-safe.
  */
 public class SubnetPredicate implements Predicate<InetSocketAddress> {
