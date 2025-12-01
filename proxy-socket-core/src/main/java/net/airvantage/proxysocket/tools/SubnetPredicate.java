@@ -72,7 +72,7 @@ public class SubnetPredicate implements Predicate<InetSocketAddress> {
             }
 
             // Apply the mask to the network address to normalize it
-            this.networkAddress = applyMask(rawAddress, prefixLength);
+            this.networkAddress = applyMask(rawAddress);
         } catch (UnknownHostException e) {
             throw new IllegalArgumentException("Invalid IP address: " + addressPart, e);
         }
@@ -87,12 +87,12 @@ public class SubnetPredicate implements Predicate<InetSocketAddress> {
     @Override
     public boolean test(InetSocketAddress socketAddress) {
         if (socketAddress == null) {
-            return false;
+            throw new IllegalArgumentException("Socket address cannot be null");
         }
 
         InetAddress address = socketAddress.getAddress();
         if (address == null) {
-            return false;
+            throw new IllegalArgumentException("Address cannot be null");
         }
 
         byte[] testAddress = address.getAddress();
@@ -102,7 +102,7 @@ public class SubnetPredicate implements Predicate<InetSocketAddress> {
             return false;
         }
 
-        byte[] maskedTestAddress = applyMask(testAddress, prefixLength);
+        byte[] maskedTestAddress = applyMask(testAddress);
 
         // Compare network portions
         for (int i = 0; i < networkAddress.length; i++) {
@@ -130,7 +130,7 @@ public class SubnetPredicate implements Predicate<InetSocketAddress> {
         System.arraycopy(address, 0, result, 0, fullBytes);
 
         // Apply mask to the partial byte if any
-        if (remainingBits > 0 && fullBytes < address.length) {
+        if (remainingBits > 0) {
             int mask = 0xFF << (8 - remainingBits);
             result[fullBytes] = (byte) (address[fullBytes] & mask);
         }
