@@ -58,24 +58,26 @@ public class SubnetPredicate implements Predicate<InetSocketAddress> {
             throw new IllegalArgumentException("Invalid prefix length: " + prefixLengthPart, e);
         }
 
+        byte[] rawAddress;
         try {
             InetAddress addr = InetAddress.getByName(addressPart);
-            byte[] rawAddress = addr.getAddress();
-            this.addressLength = rawAddress.length;
-
-            // Validate prefix length
-            int maxPrefixLength = addressLength * 8;
-            if (prefixLength < 0 || prefixLength > maxPrefixLength) {
-                throw new IllegalArgumentException(
-                    "Invalid prefix length " + prefixLength + " for address type (must be 0-" + maxPrefixLength + ")"
-                );
-            }
-
-            // Apply the mask to the network address to normalize it
-            this.networkAddress = applyMask(rawAddress);
+            rawAddress = addr.getAddress();
         } catch (UnknownHostException e) {
             throw new IllegalArgumentException("Invalid IP address: " + addressPart, e);
         }
+
+        this.addressLength = rawAddress.length;
+
+        // Validate prefix length
+        int maxPrefixLength = addressLength * 8; // converts address length to bits
+        if (prefixLength < 0 || prefixLength > maxPrefixLength) {
+            throw new IllegalArgumentException(
+                "Invalid prefix length " + prefixLength + " for address type (must be 0-" + maxPrefixLength + ")"
+            );
+        }
+
+        // Apply the mask to the network address to normalize it
+        this.networkAddress = applyMask(rawAddress);
     }
 
     /**
