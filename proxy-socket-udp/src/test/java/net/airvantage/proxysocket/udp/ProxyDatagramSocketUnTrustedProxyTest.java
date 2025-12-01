@@ -11,7 +11,6 @@ import net.airvantage.proxysocket.core.v2.AwsProxyEncoderHelper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
