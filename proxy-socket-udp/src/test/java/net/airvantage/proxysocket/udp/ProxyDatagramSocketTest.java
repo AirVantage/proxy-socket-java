@@ -27,7 +27,6 @@ import org.slf4j.LoggerFactory;
  * Unit tests for ProxyDatagramSocket IP address mapping and cache behavior.
  */
 class ProxyDatagramSocketTest {
-    private static final Logger LOG = LoggerFactory.getLogger(ProxyDatagramSocket.class);
 
     private ProxyDatagramSocket socket;
     private ProxyAddressCache mockCache;
