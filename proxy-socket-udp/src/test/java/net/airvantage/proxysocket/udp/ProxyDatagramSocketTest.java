@@ -21,8 +21,6 @@ import java.nio.charset.StandardCharsets;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 /**
  * Unit tests for ProxyDatagramSocket IP address mapping and cache behavior.
  */
