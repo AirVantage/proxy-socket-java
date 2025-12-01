@@ -1,5 +1,5 @@
-/*
- * MIT License
+/**
+ * BSD-3-Clause License.
  * Copyright (c) 2025 Semtech
  *
  * Helper class to encode PROXY protocol v2 headers using AWS ProProt library.

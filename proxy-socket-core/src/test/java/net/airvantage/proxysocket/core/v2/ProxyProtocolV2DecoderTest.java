@@ -1,7 +1,7 @@
-/*
- * MIT License
+/**
+ * BSD-3-Clause License.
  * Copyright (c) 2025 Semtech
-
+ *
  * Validation of ProxyProtocolV2Decoder against hardcoded headers for known cases
  */
 package net.airvantage.proxysocket.core.v2;

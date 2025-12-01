@@ -1,5 +1,5 @@
-/*
- * MIT License
+/**
+ * BSD-3-Clause License.
  * Copyright (c) 2025 Semtech
  */
 package net.airvantage.proxysocket.tools.cache;
