@@ -40,13 +40,6 @@ public class ProxyDatagramSocket extends DatagramSocket {
     private final ProxyProtocolMetricsListener metrics;
     private final Predicate<InetSocketAddress> trustedProxyPredicate;
 
-    public ProxyDatagramSocket(ProxyAddressCache cache, ProxyProtocolMetricsListener metrics, Predicate<InetSocketAddress> predicate) throws SocketException {
-        super();
-        this.addressCache = cache;
-        this.metrics = metrics;
-        this.trustedProxyPredicate = predicate;
-    }
-
     public ProxyDatagramSocket(SocketAddress bindaddr, ProxyAddressCache cache, ProxyProtocolMetricsListener metrics, Predicate<InetSocketAddress> predicate) throws SocketException {
         super(bindaddr);
         this.addressCache = cache;
@@ -54,18 +47,16 @@ public class ProxyDatagramSocket extends DatagramSocket {
         this.trustedProxyPredicate = predicate;
     }
 
+    public ProxyDatagramSocket(ProxyAddressCache cache, ProxyProtocolMetricsListener metrics, Predicate<InetSocketAddress> predicate) throws SocketException {
+        this(new InetSocketAddress(0), cache, metrics, predicate);
+    }
+
     public ProxyDatagramSocket(int port, ProxyAddressCache cache, ProxyProtocolMetricsListener metrics, Predicate<InetSocketAddress> predicate) throws SocketException {
-        super(port);
-        this.addressCache = cache;
-        this.metrics = metrics;
-        this.trustedProxyPredicate = predicate;
+        this(port, null, cache, metrics, predicate);
     }
 
     public ProxyDatagramSocket(int port, java.net.InetAddress laddr, ProxyAddressCache cache, ProxyProtocolMetricsListener metrics, Predicate<InetSocketAddress> predicate) throws SocketException {
-        super(port, laddr);
-        this.addressCache = cache;
-        this.metrics = metrics;
-        this.trustedProxyPredicate = predicate;
+        this(new InetSocketAddress(laddr, port), cache, metrics, predicate);
     }
 
     @Override
