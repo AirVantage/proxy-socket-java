@@ -22,6 +22,7 @@
 
     <modules>
         <module>proxy-socket-core</module>
+        <module>proxy-socket-udp</module>
         <module>proxy-socket-guava</module>
     </modules>
 

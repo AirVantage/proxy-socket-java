@@ -2,7 +2,7 @@
  * BSD-3-Clause License.
  * Copyright (c) 2025 Semtech
  */
-package net.airvantage.proxysocket.core.cache;
+package net.airvantage.proxysocket.tools.cache;
 
 import net.airvantage.proxysocket.core.ProxyAddressCache;
 import java.net.InetSocketAddress;

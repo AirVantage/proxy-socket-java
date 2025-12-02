@@ -1,5 +1,5 @@
-/*
- * MIT License
+/**
+ * BSD-3-Clause License.
  * Copyright (c) 2025 Semtech
  *
  * Helper class to encode PROXY protocol v2 headers using AWS ProProt library.
@@ -28,9 +28,10 @@ public final class AwsProxyEncoderHelper {
     private final Header header = new Header();
 
     public AwsProxyEncoderHelper command(ProxyHeader.Command cmd) {
-        this.command = cmd == ProxyHeader.Command.LOCAL
-                ? ProxyProtocolSpec.Command.LOCAL
-                : ProxyProtocolSpec.Command.PROXY;
+        this.command = switch (cmd) {
+            case LOCAL -> ProxyProtocolSpec.Command.LOCAL;
+            case PROXY -> ProxyProtocolSpec.Command.PROXY;
+        };
         return this;
     }
 
@@ -73,16 +74,10 @@ public final class AwsProxyEncoderHelper {
 
     public byte[] build() throws IOException {
         header.setCommand(command);
-        header.setAddressFamily(family);
-        header.setTransportProtocol(protocol);
 
-        // AWS ProProt validates addresses even for LOCAL command, set dummy values
-        if (command == ProxyProtocolSpec.Command.LOCAL && source == null) {
-            header.setSrcAddress(new byte[]{0, 0, 0, 0});
-            header.setDstAddress(new byte[]{0, 0, 0, 0});
-            header.setSrcPort(0);
-            header.setDstPort(0);
-        } else {
+        if (command != ProxyProtocolSpec.Command.LOCAL) {
+            header.setAddressFamily(family);
+            header.setTransportProtocol(protocol);
             if (source != null) {
                 header.setSrcAddress(source.getAddress().getAddress());
                 header.setSrcPort(source.getPort());
@@ -92,6 +87,12 @@ public final class AwsProxyEncoderHelper {
                 header.setDstAddress(destination.getAddress().getAddress());
                 header.setDstPort(destination.getPort());
             }
+        } else {
+            // Spec clearly state that for LOCAL command, we
+            // 1. must discard the protocol block including the family and
+            // 2. \x00 is expected to be used for the protocol field.
+            header.setAddressFamily(ProxyProtocolSpec.AddressFamily.AF_UNSPEC);
+            header.setTransportProtocol(ProxyProtocolSpec.TransportProtocol.UNSPEC);
         }
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
