@@ -7,12 +7,26 @@
 
     <groupId>net.airvantage</groupId>
     <artifactId>proxy-socket-java</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
+    <version>${revision}</version>
     <packaging>pom</packaging>
 
     <description>ProxyProtocol Java implementation.</description>
 
+    <distributionManagement>
+        <repository>
+            <id>github</id>
+            <name>GitHub Packages</name>
+            <url>https://maven.pkg.github.com/${github.repository}</url>
+        </repository>
+    </distributionManagement>
+
     <properties>
+
+        <!-- Version managed by CI/CD workflow -->
+        <revision>0.0.0-SNAPSHOT</revision>
+
+        <!-- GitHub repository (format: owner/repo) -->
+        <github.repository>airvantage/proxy-socket-java</github.repository>
 
         <!-- Dependency versions -->
         <junit.version>5.10.3</junit.version>
@@ -79,7 +93,6 @@
                     </execution>
                 </executions>
             </plugin>
-
         </plugins>
     </build>
 </project>
