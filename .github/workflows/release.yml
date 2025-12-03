@@ -156,11 +156,13 @@ jobs:
           generateReleaseNotes: true
 
       - name: Summary
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
         if: always()
         run: |
           echo "## Release Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Version**: ${{ needs.release.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version**: $VERSION" >> $GITHUB_STEP_SUMMARY
           echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Status**: ${{ needs.release.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Repository**: https://github.com/${{ github.repository }}/packages" >> $GITHUB_STEP_SUMMARY
