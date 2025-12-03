@@ -155,13 +155,8 @@ jobs:
           prerelease: false
           generateReleaseNotes: true
 
-  notify:
-    name: Notify
-    needs: release
-    runs-on: ubuntu-latest
-    if: always()
-    steps:
       - name: Summary
+        if: always()
         run: |
           echo "## Release Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
