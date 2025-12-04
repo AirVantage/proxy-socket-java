@@ -5,7 +5,7 @@
 
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>net.airvantage</groupId>
+    <groupId>net.airvantage.proxysocket</groupId>
     <artifactId>proxy-socket-java</artifactId>
     <version>${revision}</version>
     <packaging>pom</packaging>
