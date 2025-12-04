@@ -14,7 +14,7 @@
 
     <dependencies>
         <dependency>
-            <groupId>net.airvantage</groupId>
+            <groupId>net.airvantage.proxysocket</groupId>
             <artifactId>proxy-socket-core</artifactId>
             <version>${project.version}</version>
         </dependency>
