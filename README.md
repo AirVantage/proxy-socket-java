@@ -1,4 +1,4 @@
-# Proxy Socket Java (UDP + TCP, Java 17)
+# Proxy Socket Java (UDP, Java 17)
 
 ## Overview
 
@@ -6,9 +6,7 @@ Library providing HAProxy Proxy Protocol v2 support for UDP and TCP. Multi-modul
 
 - proxy-socket-core: zero dependencies, parser, models, interfaces
 - proxy-socket-udp: DatagramSocket wrapper
-- proxy-socket-tcp: ServerSocket/Socket wrappers
 - proxy-socket-guava: optional Guava-based cache
-- proxy-socket-examples: runnable samples
 
 Reference: [HAProxy Proxy Protocol Specifications](https://www.haproxy.org/download/3.3/doc/proxy-protocol.txt)
 
@@ -27,21 +25,9 @@ socket.receive(packet); // header stripped, source set to real client
 socket.send(packet);    // destination rewritten to LB if cached
 ```
 
-## Quick start (TCP)
-
-```java
-try (var server = new net.airvantage.proxysocket.tcp.ProxyServerSocket(9998)) {
-  for (;;) {
-    var s = (net.airvantage.proxysocket.tcp.ProxySocket) server.accept();
-    var header = s.getHeader();
-    // header.getSourceAddress() is the real client address
-  }
-}
-```
-
 ## License
 
-MIT License © 2025 Semtech. See `LICENSE`.
+BSD-3-Clause License © 2025 Semtech. See [LICENSE.BSD-3-Clause](./LICENSE.BSD-3-Clause).
 
 ## Metrics hook
 
